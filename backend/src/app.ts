@@ -7,6 +7,8 @@ import { UPLOAD_ROOT } from './lib/upload';
 import { authRouter } from './modules/auth/auth.routes';
 import { adminRouter } from './modules/admin/admin.routes';
 import { menuRouter } from './modules/menu/menu.routes';
+import { tablesRouter } from './modules/tables/tables.routes';
+import { publicRouter } from './modules/public/public.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 export const app = express();
@@ -25,6 +27,8 @@ app.get('/api/v1/health', (_req, res) => {
 
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/admin', adminRouter);
+app.use('/api/v1/public', publicRouter);
 app.use('/api/v1/restaurants/:restaurantId', menuRouter);
+app.use('/api/v1/restaurants/:restaurantId', tablesRouter);
 
 app.use(errorHandler);
