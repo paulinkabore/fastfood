@@ -4,7 +4,8 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import { authRouter } from './modules/auth/auth.routes';
-import { authenticate, requireRestaurantRole, requireSuperAdmin } from './middleware/auth';
+import { adminRouter } from './modules/admin/admin.routes';
+import { authenticate, requireRestaurantRole } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 
 export const app = express();
@@ -19,12 +20,9 @@ app.get('/api/v1/health', (_req, res) => {
 });
 
 app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/admin', adminRouter);
 
-// --- Routes temporaires de test des permissions (supprimées à l'étape 4) ---
-app.get('/api/v1/admin/ping', authenticate, requireSuperAdmin, (_req, res) => {
-  res.json({ ok: true, scope: 'super-admin' });
-});
-
+// --- Route temporaire de test des permissions (remplacée à l'étape 5) ---
 app.get(
   '/api/v1/restaurants/:restaurantId/ping',
   authenticate,

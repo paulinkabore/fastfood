@@ -27,7 +27,7 @@ export const requireSuperAdmin: RequestHandler = (req, _res, next) => {
   next();
 };
 
-// 3. Appartient-il à CE restaurant avec un des rôles autorisés ?
+// 3. Appartient-il à CE restaurant (actif) avec un des rôles autorisés ?
 export const requireRestaurantRole =
   (...roles: MemberRole[]): RequestHandler =>
   async (req, _res, next) => {
@@ -35,8 +35,14 @@ export const requireRestaurantRole =
       const restaurantId = String(req.params.restaurantId);
       const membership = await prisma.restaurantMembership.findUnique({
         where: { userId_restaurantId: { userId: req.auth!.userId, restaurantId } },
+        include: { restaurant: { select: { isActive: true } } },
       });
-      if (!membership || !membership.isActive || !roles.includes(membership.role)) {
+      if (
+        !membership ||
+        !membership.isActive ||
+        !membership.restaurant.isActive ||
+        !roles.includes(membership.role)
+      ) {
         throw new AppError(403, 'FORBIDDEN', 'Accès refusé pour ce restaurant');
       }
       req.membership = { restaurantId, role: membership.role };
