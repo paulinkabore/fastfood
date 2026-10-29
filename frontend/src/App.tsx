@@ -1,37 +1,29 @@
-import { useEffect, useState } from 'react';
+import { Link, Route, Routes } from 'react-router-dom';
+import HomePage from './pages/HomePage';
+import ClientMenuPage from './pages/ClientMenuPage';
+import OrderTrackingPage from './pages/OrderTrackingPage';
 
-type Health = { status: string; timestamp: string };
-
-export default function App() {
-  const [health, setHealth] = useState<Health | null>(null);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/v1/health')
-      .then((r) => r.json())
-      .then(setHealth)
-      .catch(() => setError(true));
-  }, []);
-
+function NotFound() {
   return (
-    <main className="min-h-screen grid place-items-center p-6">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl shadow-stone-200/60 ring-1 ring-stone-200">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Fast-Food <span className="text-brand-500">QR</span>
-        </h1>
-        <p className="mt-1 text-sm text-stone-500">Vérification de la connexion à l'API</p>
-
-        <div className="mt-6 flex items-center gap-3 rounded-xl bg-stone-50 p-4">
-          <span
-            className={`h-3 w-3 rounded-full ${
-              health ? 'bg-emerald-500' : error ? 'bg-red-500' : 'bg-stone-300 animate-pulse'
-            }`}
-          />
-          <span className="text-sm font-medium">
-            {health ? 'API connectée' : error ? 'API injoignable' : 'Connexion…'}
-          </span>
-        </div>
+    <main className="grid min-h-dvh place-items-center p-6 text-center">
+      <div>
+        <p className="text-5xl font-semibold text-brand-500">404</p>
+        <p className="mt-2 text-stone-500">Cette page n'existe pas.</p>
+        <Link to="/" className="mt-4 inline-block text-sm font-medium text-brand-600">
+          Retour à l'accueil
+        </Link>
       </div>
     </main>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/q/:token" element={<ClientMenuPage />} />
+      <Route path="/commande/:orderId" element={<OrderTrackingPage />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
