@@ -1,8 +1,6 @@
-import 'dotenv/config';
 import { app } from './app';
+import { env } from './config/env';
 
-const port = Number(process.env.PORT ?? 4000);
-
-app.listen(port, () => {
-  console.log(`API démarrée sur http://localhost:${port}`);
+app.listen(env.PORT, () => {
+  console.log(`API démarrée sur http://localhost:${env.PORT}`);
 });

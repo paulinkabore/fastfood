@@ -89,6 +89,7 @@ model Restaurant {
   recipes        Recipe[]
   stockMovements StockMovement[]
   auditLogs      AuditLog[]
+  refreshTokens  RefreshToken[]
 
   @@map("restaurants")
 }
@@ -109,6 +110,7 @@ model User {
   closedSessions CashSession[]          @relation("CashClosedBy")
   stockMovements StockMovement[]
   auditLogs      AuditLog[]
+  refreshTokens  RefreshToken[]
 
   @@map("users")
 }
@@ -395,4 +397,20 @@ model AuditLog {
 
   @@index([restaurantId, createdAt])
   @@map("audit_logs")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user         User        @relation(fields: [userId], references: [id])
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
+  restaurantId String?
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }

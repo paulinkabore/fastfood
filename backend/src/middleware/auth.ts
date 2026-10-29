@@ -1,0 +1,47 @@
+import type { RequestHandler } from 'express';
+import type { MemberRole } from '@prisma/client';
+import { prisma } from '../lib/prisma';
+import { AppError } from '../lib/errors';
+import { verifyAccessToken } from '../lib/tokens';
+
+// 1. L'utilisateur est-il connecté ?
+export const authenticate: RequestHandler = (req, _res, next) => {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) {
+    return next(new AppError(401, 'UNAUTHENTICATED', 'Connexion requise'));
+  }
+  try {
+    const payload = verifyAccessToken(header.slice(7));
+    req.auth = { userId: payload.sub, globalRole: payload.role };
+    next();
+  } catch {
+    next(new AppError(401, 'INVALID_TOKEN', 'Jeton invalide ou expiré'));
+  }
+};
+
+// 2. Est-il super-administrateur ?
+export const requireSuperAdmin: RequestHandler = (req, _res, next) => {
+  if (req.auth?.globalRole !== 'SUPER_ADMIN') {
+    return next(new AppError(403, 'FORBIDDEN', 'Accès réservé au super-administrateur'));
+  }
+  next();
+};
+
+// 3. Appartient-il à CE restaurant avec un des rôles autorisés ?
+export const requireRestaurantRole =
+  (...roles: MemberRole[]): RequestHandler =>
+  async (req, _res, next) => {
+    try {
+      const restaurantId = String(req.params.restaurantId);
+      const membership = await prisma.restaurantMembership.findUnique({
+        where: { userId_restaurantId: { userId: req.auth!.userId, restaurantId } },
+      });
+      if (!membership || !membership.isActive || !roles.includes(membership.role)) {
+        throw new AppError(403, 'FORBIDDEN', 'Accès refusé pour ce restaurant');
+      }
+      req.membership = { restaurantId, role: membership.role };
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
