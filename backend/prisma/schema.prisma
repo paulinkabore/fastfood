@@ -7,7 +7,392 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Ping {
-  id        Int      @id @default(autoincrement())
+// ---------- Énumérations ----------
+enum GlobalRole {
+  SUPER_ADMIN
+  USER
+}
+
+enum MemberRole {
+  MANAGER
+  CASHIER
+  COOK
+  WAITER
+}
+
+enum QrType {
+  TABLE
+  TAKEAWAY
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+}
+
+enum OrderStatus {
+  RECEIVED
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  MOBILE_MONEY
+  CARD
+}
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  LOSS
+  CORRECTION
+}
+
+// ---------- Restaurants et utilisateurs ----------
+model Restaurant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  address   String?
+  phone     String?
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships    RestaurantMembership[]
+  tables         RestaurantTable[]
+  qrCodes        QrCode[]
+  categories     Category[]
+  products       Product[]
+  productOptions ProductOption[]
+  orders         Order[]
+  orderItems     OrderItem[]
+  payments       Payment[]
+  cashSessions   CashSession[]
+  ingredients    Ingredient[]
+  recipes        Recipe[]
+  stockMovements StockMovement[]
+  auditLogs      AuditLog[]
+
+  @@map("restaurants")
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  fullName     String
+  globalRole   GlobalRole @default(USER)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  memberships    RestaurantMembership[]
+  ordersCreated  Order[]
+  openedSessions CashSession[]          @relation("CashOpenedBy")
+  closedSessions CashSession[]          @relation("CashClosedBy")
+  stockMovements StockMovement[]
+  auditLogs      AuditLog[]
+
+  @@map("users")
+}
+
+model RestaurantMembership {
+  id           String     @id @default(uuid())
+  userId       String
+  restaurantId String
+  role         MemberRole
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+
+  user       User       @relation(fields: [userId], references: [id])
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@unique([userId, restaurantId])
+  @@index([restaurantId])
+  @@map("restaurant_memberships")
+}
+
+// ---------- Tables et QR codes ----------
+model RestaurantTable {
+  id           String   @id @default(uuid())
+  restaurantId String
+  label        String
+  seats        Int?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  qrCodes    QrCode[]
+  orders     Order[]
+
+  @@unique([restaurantId, label])
+  @@index([restaurantId])
+  @@map("tables")
+}
+
+model QrCode {
+  id           String    @id @default(uuid())
+  restaurantId String
+  tableId      String?
+  type         QrType
+  token        String    @unique
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+
+  restaurant Restaurant       @relation(fields: [restaurantId], references: [id])
+  table      RestaurantTable? @relation(fields: [tableId], references: [id])
+  orders     Order[]
+
+  @@index([restaurantId])
+  @@map("qr_codes")
+}
+
+// ---------- Menu ----------
+model Category {
+  id           String   @id @default(uuid())
+  restaurantId String
+  name         String
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  products   Product[]
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId])
+  @@map("categories")
+}
+
+model Product {
+  id           String   @id @default(uuid())
+  restaurantId String
+  categoryId   String
+  name         String
+  description  String?
+  priceFcfa    Int
+  imageUrl     String?
+  allergens    String[]
+  isAvailable  Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant      @relation(fields: [restaurantId], references: [id])
+  category   Category        @relation(fields: [categoryId], references: [id])
+  options    ProductOption[]
+  orderItems OrderItem[]
+  recipes    Recipe[]
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId, categoryId])
+  @@map("products")
+}
+
+model ProductOption {
+  id             String  @id @default(uuid())
+  restaurantId   String
+  productId      String
+  name           String
+  priceDeltaFcfa Int     @default(0)
+  isActive       Boolean @default(true)
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  product    Product    @relation(fields: [productId], references: [id])
+
+  @@index([restaurantId])
+  @@map("product_options")
+}
+
+// ---------- Commandes ----------
+model Order {
+  id              String        @id @default(uuid())
+  restaurantId    String
+  number          Int
+  type            OrderType
+  status          OrderStatus   @default(RECEIVED)
+  paymentStatus   PaymentStatus @default(PENDING)
+  tableId         String?
+  qrCodeId        String?
+  createdById     String?
+  notes           String?
+  totalFcfa       Int
+  idempotencyKey  String?
+  stockDeductedAt DateTime?
+  cancelledReason String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  restaurant     Restaurant       @relation(fields: [restaurantId], references: [id])
+  table          RestaurantTable? @relation(fields: [tableId], references: [id])
+  qrCode         QrCode?          @relation(fields: [qrCodeId], references: [id])
+  createdBy      User?            @relation(fields: [createdById], references: [id])
+  items          OrderItem[]
+  payments       Payment[]
+  stockMovements StockMovement[]
+
+  @@unique([restaurantId, number])
+  @@unique([restaurantId, idempotencyKey])
+  @@index([restaurantId, status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String  @id @default(uuid())
+  restaurantId    String
+  orderId         String
+  productId       String
+  productName     String
+  unitPriceFcfa   Int
+  quantity        Int
+  optionsSnapshot Json?
+  notes           String?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  order      Order      @relation(fields: [orderId], references: [id])
+  product    Product    @relation(fields: [productId], references: [id])
+
+  @@index([restaurantId])
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// ---------- Paiements et caisse ----------
+model Payment {
+  id                String        @id @default(uuid())
+  restaurantId      String
+  orderId           String
+  cashSessionId     String?
+  method            PaymentMethod
+  status            PaymentStatus @default(PENDING)
+  amountFcfa        Int
+  provider          String?
+  providerReference String?
+  confirmedAt       DateTime?
+  refundedReason    String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  restaurant  Restaurant   @relation(fields: [restaurantId], references: [id])
+  order       Order        @relation(fields: [orderId], references: [id])
+  cashSession CashSession? @relation(fields: [cashSessionId], references: [id])
+
+  @@unique([provider, providerReference])
+  @@index([restaurantId])
+  @@index([orderId])
+  @@map("payments")
+}
+
+model CashSession {
+  id                String            @id @default(uuid())
+  restaurantId      String
+  openedById        String
+  closedById        String?
+  openingFloatFcfa  Int               @default(0)
+  closingAmountFcfa Int?
+  status            CashSessionStatus @default(OPEN)
+  openedAt          DateTime          @default(now())
+  closedAt          DateTime?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  openedBy   User       @relation("CashOpenedBy", fields: [openedById], references: [id])
+  closedBy   User?      @relation("CashClosedBy", fields: [closedById], references: [id])
+  payments   Payment[]
+
+  @@index([restaurantId])
+  @@map("cash_sessions")
+}
+
+// ---------- Stocks ----------
+model Ingredient {
+  id             String   @id @default(uuid())
+  restaurantId   String
+  name           String
+  unit           String
+  quantity       Decimal  @default(0) @db.Decimal(12, 3)
+  alertThreshold Decimal  @default(0) @db.Decimal(12, 3)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  restaurant     Restaurant      @relation(fields: [restaurantId], references: [id])
+  recipes        Recipe[]
+  stockMovements StockMovement[]
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId])
+  @@map("ingredients")
+}
+
+model Recipe {
+  id              String  @id @default(uuid())
+  restaurantId    String
+  productId       String
+  ingredientId    String
+  quantityPerUnit Decimal @db.Decimal(12, 3)
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  product    Product    @relation(fields: [productId], references: [id])
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@unique([productId, ingredientId])
+  @@index([restaurantId])
+  @@map("recipes")
+}
+
+model StockMovement {
+  id             String            @id @default(uuid())
+  restaurantId   String
+  ingredientId   String
+  orderId        String?
+  createdById    String?
+  type           StockMovementType
+  quantity       Decimal           @db.Decimal(12, 3)
+  reason         String?
+  idempotencyKey String?
+  createdAt      DateTime          @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+  order      Order?     @relation(fields: [orderId], references: [id])
+  createdBy  User?      @relation(fields: [createdById], references: [id])
+
+  @@unique([restaurantId, idempotencyKey])
+  @@index([restaurantId, ingredientId])
+  @@map("stock_movements")
+}
+
+// ---------- Audit ----------
+model AuditLog {
+  id           String   @id @default(uuid())
+  restaurantId String?
+  userId       String?
+  action       String
+  entity       String
+  entityId     String?
+  details      Json?
+  createdAt    DateTime @default(now())
+
+  restaurant Restaurant? @relation(fields: [restaurantId], references: [id])
+  user       User?       @relation(fields: [userId], references: [id])
+
+  @@index([restaurantId, createdAt])
+  @@map("audit_logs")
 }
