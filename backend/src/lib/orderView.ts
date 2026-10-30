@@ -15,6 +15,7 @@ export const presentOrder = (o: OrderWithRelations) => ({
   type: o.type,
   status: o.status,
   paymentStatus: o.paymentStatus,
+sentToKitchenAt: o.sentToKitchenAt,
   totalFcfa: o.totalFcfa,
   notes: o.notes,
   createdAt: o.createdAt,

@@ -170,6 +170,7 @@ publicOrdersRouter.post(
               notes: body.notes,
               totalFcfa: total,
               idempotencyKey: body.idempotencyKey,
+              sentToKitchenAt: new Date(),
               items: { create: lines },
               // Paiement en espèces : en attente jusqu'à l'encaissement par le caissier
               payments: { create: { restaurantId, method: 'CASH', amountFcfa: total } },
@@ -177,7 +178,7 @@ publicOrdersRouter.post(
             include: orderInclude,
           });
         });
-                void emitOrderCreated(order.id);
+        void emitOrderCreated(order.id);
         res.status(201).json({ order: present(order) });
         return;
       } catch (err) {

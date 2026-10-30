@@ -17,6 +17,8 @@ const canAccess = [authenticate, requireRestaurantRole(...STAFF)];
 // Restaurant déjà vérifié par le middleware
 const rid = (req: Request) => req.membership!.restaurantId;
 
+const ACTIVE: OrderStatus[] = ['RECEIVED', 'PREPARING', 'READY'];
+
 // Enchaînements autorisés
 const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   RECEIVED: ['PREPARING', 'CANCELLED'],
@@ -35,24 +37,25 @@ const WHO: Record<OrderStatus, MemberRole[]> = {
   CANCELLED: ['CASHIER', 'MANAGER'],
 };
 
+// ---------- Liste des commandes ----------
 ordersRouter.get(
   '/orders',
   ...canAccess,
   asyncHandler(async (req, res) => {
     const { scope } = z
-      .object({ scope: z.enum(['active', 'today']).default('active') })
+      .object({ scope: z.enum(['active', 'today', 'kitchen']).default('active') })
       .parse(req.query);
 
+    const restaurantId = rid(req);
     const startOfDay = new Date();
     startOfDay.setUTCHours(0, 0, 0, 0);
 
     const where =
-      scope === 'active'
-        ? {
-            restaurantId: rid(req),
-            status: { in: ['RECEIVED', 'PREPARING', 'READY'] as OrderStatus[] },
-          }
-        : { restaurantId: rid(req), createdAt: { gte: startOfDay } };
+      scope === 'kitchen'
+        ? { restaurantId, status: { in: ACTIVE }, sentToKitchenAt: { not: null } }
+        : scope === 'active'
+          ? { restaurantId, status: { in: ACTIVE } }
+          : { restaurantId, createdAt: { gte: startOfDay } };
 
     const orders = await prisma.order.findMany({
       where,
@@ -64,6 +67,7 @@ ordersRouter.get(
   }),
 );
 
+// ---------- Changement de statut ----------
 const statusSchema = z.object({
   status: z.enum(['PREPARING', 'READY', 'SERVED', 'CANCELLED']),
   reason: z.string().trim().min(3).max(200).optional(),

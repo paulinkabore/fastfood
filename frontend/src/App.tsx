@@ -2,6 +2,8 @@ import { Link, Route, Routes } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import ClientMenuPage from './pages/ClientMenuPage';
 import OrderTrackingPage from './pages/OrderTrackingPage';
+import LoginPage from './pages/LoginPage';
+import KitchenPage from './pages/KitchenPage';
 
 function NotFound() {
   return (
@@ -23,6 +25,8 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/q/:token" element={<ClientMenuPage />} />
       <Route path="/commande/:orderId" element={<OrderTrackingPage />} />
+      <Route path="/connexion" element={<LoginPage />} />
+      <Route path="/cuisine" element={<KitchenPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

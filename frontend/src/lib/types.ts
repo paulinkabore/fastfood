@@ -22,13 +22,16 @@ export type PublicMenu = {
 
 export type OrderStatus = 'RECEIVED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+export type MemberRole = 'MANAGER' | 'CASHIER' | 'COOK' | 'WAITER';
 
 export type OrderView = {
   id: string;
+  restaurantId?: string;
   number: number;
   type: 'DINE_IN' | 'TAKEAWAY';
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  sentToKitchenAt?: string | null;
   totalFcfa: number;
   notes: string | null;
   createdAt: string;
@@ -41,4 +44,12 @@ export type OrderView = {
     options: string[];
     notes: string | null;
   }[];
+};
+
+export type StaffUser = {
+  id: string;
+  email: string;
+  fullName: string;
+  globalRole: 'SUPER_ADMIN' | 'USER';
+  memberships: { restaurantId: string; role: MemberRole }[];
 };

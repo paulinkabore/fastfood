@@ -239,6 +239,7 @@ model Order {
   totalFcfa       Int
   idempotencyKey  String?
   stockDeductedAt DateTime?
+  sentToKitchenAt DateTime?
   cancelledReason String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
