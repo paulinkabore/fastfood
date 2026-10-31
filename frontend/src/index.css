@@ -30,3 +30,20 @@
 body {
   @apply bg-stone-50 text-stone-900 antialiased;
 }
+/* Reçu : invisible à l'écran, seul élément imprimé */
+.print-receipt {
+  display: none;
+}
+
+@media print {
+  #root {
+    display: none !important;
+  }
+  .print-receipt {
+    display: block !important;
+    padding: 4mm;
+  }
+  body {
+    background: white;
+  }
+}

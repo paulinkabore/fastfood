@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../lib/errors';
 import { asyncHandler } from '../../lib/asyncHandler';
+import { orderInclude, presentOrder } from '../../lib/orderView';
+import { createOrder, findOrderByKey, orderItemSchema } from '../../lib/orderService';
 import { emitOrderCreated } from '../../lib/realtime';
 
 export const publicOrdersRouter = Router();
@@ -30,54 +31,11 @@ const trackingLimiter = rateLimit({
   },
 });
 
-// ---------- Validation ----------
-const itemSchema = z.object({
-  productId: z.string().uuid(),
-  quantity: z.number().int().min(1).max(20),
-  optionIds: z.array(z.string().uuid()).max(10).default([]),
-  notes: z.string().trim().max(200).optional(),
-});
-
 const orderSchema = z.object({
   idempotencyKey: z.string().uuid(),
-  items: z.array(itemSchema).min(1).max(40),
+  items: z.array(orderItemSchema).min(1).max(40),
   notes: z.string().trim().max(300).optional(),
 });
-
-// ---------- Présentation d'une commande ----------
-const orderInclude = {
-  items: true,
-  table: { select: { label: true } },
-  restaurant: { select: { name: true } },
-} satisfies Prisma.OrderInclude;
-
-type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
-
-const present = (o: OrderWithRelations) => ({
-  id: o.id,
-  number: o.number,
-  type: o.type,
-  status: o.status,
-  paymentStatus: o.paymentStatus,
-  totalFcfa: o.totalFcfa,
-  notes: o.notes,
-  createdAt: o.createdAt,
-  restaurantName: o.restaurant.name,
-  tableLabel: o.table?.label ?? null,
-  items: o.items.map((i) => ({
-    productName: i.productName,
-    quantity: i.quantity,
-    unitPriceFcfa: i.unitPriceFcfa,
-    options: ((i.optionsSnapshot as { name: string }[] | null) ?? []).map((x) => x.name),
-    notes: i.notes,
-  })),
-});
-
-const findByKey = (restaurantId: string, idempotencyKey: string) =>
-  prisma.order.findUnique({
-    where: { restaurantId_idempotencyKey: { restaurantId, idempotencyKey } },
-    include: orderInclude,
-  });
 
 // ---------- Créer une commande ----------
 publicOrdersRouter.post(
@@ -95,12 +53,11 @@ publicOrdersRouter.post(
       include: { restaurant: true, table: true },
     });
     if (!qr) throw new AppError(404, 'NOT_FOUND', 'QR code inconnu');
-    const restaurantId = qr.restaurantId;
 
     // Anti double envoi : même clé = même commande, renvoyée telle quelle
-    const existing = await findByKey(restaurantId, body.idempotencyKey);
+    const existing = await findOrderByKey(qr.restaurantId, body.idempotencyKey);
     if (existing) {
-      res.status(200).json({ order: present(existing), duplicate: true });
+      res.status(200).json({ order: presentOrder(existing), duplicate: true });
       return;
     }
 
@@ -108,93 +65,23 @@ publicOrdersRouter.post(
       throw new AppError(410, 'QR_INACTIVE', "Ce QR code n'est plus actif");
     }
 
-    // Produits chargés UNIQUEMENT dans ce restaurant
-    const productIds = [...new Set(body.items.map((i) => i.productId))];
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds }, restaurantId, category: { isActive: true } },
-      include: { options: { where: { isActive: true } } },
-    });
-    const byId = new Map(products.map((p) => [p.id, p]));
-
-    // Les prix viennent de la base, jamais du téléphone
-    let total = 0;
-    const lines = body.items.map((item) => {
-      const product = byId.get(item.productId);
-      if (!product) {
-        throw new AppError(400, 'PRODUCT_NOT_FOUND', 'Un produit de la commande est introuvable');
-      }
-      if (!product.isAvailable) {
-        throw new AppError(409, 'PRODUCT_UNAVAILABLE', `« ${product.name} » n'est plus disponible`);
-      }
-      const options = [...new Set(item.optionIds)].map((id) => {
-        const option = product.options.find((o) => o.id === id);
-        if (!option) {
-          throw new AppError(400, 'OPTION_NOT_FOUND', `Option invalide pour « ${product.name} »`);
-        }
-        return option;
-      });
-      const unitPriceFcfa =
-        product.priceFcfa + options.reduce((sum, o) => sum + o.priceDeltaFcfa, 0);
-      total += unitPriceFcfa * item.quantity;
-      return {
-        restaurantId,
-        productId: product.id,
-        productName: product.name,
-        unitPriceFcfa,
-        quantity: item.quantity,
-        optionsSnapshot: options.map((o) => ({
-          id: o.id,
-          name: o.name,
-          priceDeltaFcfa: o.priceDeltaFcfa,
-        })),
-        notes: item.notes,
-      };
+    const { order, duplicate } = await createOrder({
+      restaurantId: qr.restaurantId,
+      type: qr.type === 'TABLE' ? 'DINE_IN' : 'TAKEAWAY',
+      tableId: qr.tableId,
+      qrCodeId: qr.id,
+      createdById: null,
+      notes: body.notes,
+      idempotencyKey: body.idempotencyKey,
+      items: body.items,
     });
 
-    const type = qr.type === 'TABLE' ? ('DINE_IN' as const) : ('TAKEAWAY' as const);
-
-    for (let attempt = 0; attempt < 5; attempt++) {
-      try {
-        const order = await prisma.$transaction(async (tx) => {
-          const last = await tx.order.aggregate({
-            where: { restaurantId },
-            _max: { number: true },
-          });
-          return tx.order.create({
-            data: {
-              restaurantId,
-              number: (last._max.number ?? 0) + 1,
-              type,
-              tableId: qr.tableId,
-              qrCodeId: qr.id,
-              notes: body.notes,
-              totalFcfa: total,
-              idempotencyKey: body.idempotencyKey,
-              sentToKitchenAt: new Date(),
-              items: { create: lines },
-              // Paiement en espèces : en attente jusqu'à l'encaissement par le caissier
-              payments: { create: { restaurantId, method: 'CASH', amountFcfa: total } },
-            },
-            include: orderInclude,
-          });
-        });
-        void emitOrderCreated(order.id);
-        res.status(201).json({ order: present(order) });
-        return;
-      } catch (err) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-          // Deux envois simultanés avec la même clé : on renvoie la commande gagnante
-          const again = await findByKey(restaurantId, body.idempotencyKey);
-          if (again) {
-            res.status(200).json({ order: present(again), duplicate: true });
-            return;
-          }
-          continue; // numéro déjà pris par une autre commande : nouvel essai
-        }
-        throw err;
-      }
+    if (duplicate) {
+      res.status(200).json({ order: presentOrder(order), duplicate: true });
+      return;
     }
-    throw new AppError(503, 'ORDER_BUSY', 'Le restaurant reçoit beaucoup de commandes, réessayez');
+    void emitOrderCreated(order.id);
+    res.status(201).json({ order: presentOrder(order) });
   }),
 );
 
@@ -211,6 +98,6 @@ publicOrdersRouter.get(
     const order = await prisma.order.findUnique({ where: { id }, include: orderInclude });
     if (!order) throw new AppError(404, 'NOT_FOUND', 'Commande introuvable');
     res.setHeader('Cache-Control', 'no-store');
-    res.json({ order: present(order) });
+    res.json({ order: presentOrder(order) });
   }),
 );

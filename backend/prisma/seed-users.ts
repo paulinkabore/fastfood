@@ -30,6 +30,7 @@ async function main() {
   const staff: [string, string, string, MemberRole][] = [
     ['manager@fastfood.test', 'Gérant Démo', demo.id, 'MANAGER'],
     ['cashier@fastfood.test', 'Caissier Démo', demo.id, 'CASHIER'],
+    ['cashier2@fastfood.test', 'Caissier Deux', demo.id, 'CASHIER'],
     ['cook@fastfood.test', 'Cuisinier Démo', demo.id, 'COOK'],
     ['waiter@fastfood.test', 'Serveur Démo', demo.id, 'WAITER'],
     ['manager2@fastfood.test', 'Gérant Autre', other.id, 'MANAGER'],

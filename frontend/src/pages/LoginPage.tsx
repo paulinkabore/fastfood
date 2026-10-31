@@ -2,19 +2,23 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import type { StaffUser } from '../lib/types';
+
+const homeFor = (u: StaffUser) =>
+  u.memberships.some((m) => m.role === 'CASHIER') ? '/caisse' : '/cuisine';
 
 export default function LoginPage() {
   const { user, ready, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? '/cuisine';
+  const from = (location.state as { from?: string } | null)?.from;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  if (ready && user) return <Navigate to={from} replace />;
+  if (ready && user) return <Navigate to={from ?? homeFor(user)} replace />;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -22,8 +26,8 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      await login(email.trim(), password);
-      navigate(from, { replace: true });
+      const u = await login(email.trim(), password);
+      navigate(from ?? homeFor(u), { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erreur inattendue, réessayez.');
     } finally {

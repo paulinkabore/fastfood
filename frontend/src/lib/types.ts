@@ -53,3 +53,59 @@ export type StaffUser = {
   globalRole: 'SUPER_ADMIN' | 'USER';
   memberships: { restaurantId: string; role: MemberRole }[];
 };
+export type CashierOrder = OrderView & {
+  payments: {
+    id: string;
+    method: string;
+    status: PaymentStatus;
+    receiptNumber: number | null;
+    confirmedAt: string | null;
+  }[];
+};
+
+export type CashSessionView = {
+  id: string;
+  status: 'OPEN' | 'CLOSED';
+  openedAt: string;
+  closedAt: string | null;
+  openingFloatFcfa: number;
+  collectedFcfa: number;
+  collectedCount: number;
+  refundedFcfa: number;
+  refundedCount: number;
+  expectedFcfa: number;
+  closingAmountFcfa: number | null;
+  differenceFcfa: number | null;
+  closingNote: string | null;
+};
+
+export type ReceiptView = {
+  restaurantName: string;
+  receiptNumber: number | null;
+  orderNumber: number;
+  issuedAt: string;
+  orderType: 'DINE_IN' | 'TAKEAWAY';
+  tableLabel: string | null;
+  items: {
+    productName: string;
+    quantity: number;
+    unitPriceFcfa: number;
+    options: string[];
+    notes: string | null;
+    lineTotalFcfa: number;
+  }[];
+  totalFcfa: number;
+  method: string;
+  status: PaymentStatus;
+  refundedAt: string | null;
+  cashierName: string | null;
+};
+
+export type StaffCategory = { id: string; name: string; isActive: boolean };
+
+export type StaffProduct = Omit<MenuProduct, 'options'> & {
+  categoryId: string;
+  options: (MenuOption & { isActive?: boolean })[];
+};
+
+export type StaffTable = { id: string; label: string; seats: number | null; isActive: boolean };

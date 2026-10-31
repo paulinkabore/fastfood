@@ -4,6 +4,7 @@ import ClientMenuPage from './pages/ClientMenuPage';
 import OrderTrackingPage from './pages/OrderTrackingPage';
 import LoginPage from './pages/LoginPage';
 import KitchenPage from './pages/KitchenPage';
+import CashierPage from './pages/CashierPage';
 
 function NotFound() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
       <Route path="/commande/:orderId" element={<OrderTrackingPage />} />
       <Route path="/connexion" element={<LoginPage />} />
       <Route path="/cuisine" element={<KitchenPage />} />
+      <Route path="/caisse" element={<CashierPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

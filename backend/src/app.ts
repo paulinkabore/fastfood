@@ -9,6 +9,7 @@ import { adminRouter } from './modules/admin/admin.routes';
 import { menuRouter } from './modules/menu/menu.routes';
 import { tablesRouter } from './modules/tables/tables.routes';
 import { ordersRouter } from './modules/orders/orders.routes';
+import { cashierRouter } from './modules/cashier/cashier.routes';
 import { publicRouter } from './modules/public/public.routes';
 import { publicOrdersRouter } from './modules/public/orders.routes';
 import { errorHandler } from './middleware/errorHandler';
@@ -34,5 +35,6 @@ app.use('/api/v1/public', publicOrdersRouter);
 app.use('/api/v1/restaurants/:restaurantId', menuRouter);
 app.use('/api/v1/restaurants/:restaurantId', tablesRouter);
 app.use('/api/v1/restaurants/:restaurantId', ordersRouter);
+app.use('/api/v1/restaurants/:restaurantId', cashierRouter);
 
 app.use(errorHandler);

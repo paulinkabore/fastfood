@@ -291,6 +291,11 @@ model Payment {
   providerReference String?
   confirmedAt       DateTime?
   refundedReason    String?
+  receiptNumber     Int?
+  confirmedById     String?
+  refundedAt        DateTime?
+  refundedById      String?
+  refundSessionId   String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
@@ -299,21 +304,25 @@ model Payment {
   cashSession CashSession? @relation(fields: [cashSessionId], references: [id])
 
   @@unique([provider, providerReference])
+  @@unique([restaurantId, receiptNumber])
   @@index([restaurantId])
   @@index([orderId])
   @@map("payments")
 }
 
 model CashSession {
-  id                String            @id @default(uuid())
-  restaurantId      String
-  openedById        String
-  closedById        String?
-  openingFloatFcfa  Int               @default(0)
-  closingAmountFcfa Int?
-  status            CashSessionStatus @default(OPEN)
-  openedAt          DateTime          @default(now())
-  closedAt          DateTime?
+  id                 String            @id @default(uuid())
+  restaurantId       String
+  openedById         String
+  closedById         String?
+  openingFloatFcfa   Int               @default(0)
+  closingAmountFcfa  Int?
+  status             CashSessionStatus @default(OPEN)
+  openedAt           DateTime          @default(now())
+  closedAt           DateTime?
+  expectedAmountFcfa Int?
+  differenceFcfa     Int?
+  closingNote        String?
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id])
   openedBy   User       @relation("CashOpenedBy", fields: [openedById], references: [id])
