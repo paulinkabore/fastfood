@@ -4,8 +4,12 @@ import { ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import type { StaffUser } from '../lib/types';
 
-const homeFor = (u: StaffUser) =>
-  u.memberships.some((m) => m.role === 'CASHIER') ? '/caisse' : '/cuisine';
+const homeFor = (u: StaffUser) => {
+  const roles = u.memberships.map((m) => m.role);
+  if (roles.includes('CASHIER')) return '/caisse';
+  if (roles.includes('WAITER')) return '/service';
+  return '/cuisine';
+};
 
 export default function LoginPage() {
   const { user, ready, login } = useAuth();

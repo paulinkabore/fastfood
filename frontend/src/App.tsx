@@ -5,6 +5,7 @@ import OrderTrackingPage from './pages/OrderTrackingPage';
 import LoginPage from './pages/LoginPage';
 import KitchenPage from './pages/KitchenPage';
 import CashierPage from './pages/CashierPage';
+import ServicePage from './pages/ServicePage';
 
 function NotFound() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
       <Route path="/connexion" element={<LoginPage />} />
       <Route path="/cuisine" element={<KitchenPage />} />
       <Route path="/caisse" element={<CashierPage />} />
+      <Route path="/service" element={<ServicePage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
