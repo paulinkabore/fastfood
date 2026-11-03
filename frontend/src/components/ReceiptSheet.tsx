@@ -41,7 +41,7 @@ function ReceiptBody({ r }: { r: ReceiptView }) {
       </p>
       <p className="mt-2 flex justify-between text-xs text-stone-500">
         <span>Paiement</span>
-        <span>{r.method === 'CASH' ? 'Espèces' : r.method}</span>
+        <span>{r.method === 'CASH' ? 'Espèces' : 'Mobile Money'}</span>
       </p>
       {r.cashierName && (
         <p className="flex justify-between text-xs text-stone-500">

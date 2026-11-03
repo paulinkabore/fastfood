@@ -1,18 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
 import { fcfa } from '../lib/format';
+import { getSocket } from '../lib/socket';
 import type { OrderView, PaymentStatus } from '../lib/types';
 import { CheckIcon } from '../components/icons';
-import { getSocket } from '../lib/socket';
 
 const STEP_INDEX = { RECEIVED: 0, PREPARING: 1, READY: 2, SERVED: 3, CANCELLED: -1 } as const;
 
 const PAYMENT: Record<PaymentStatus, { label: string; style: string }> = {
-  PENDING: {
-    label: 'Paiement en attente : à régler à la caisse',
-    style: 'bg-amber-50 text-amber-700',
-  },
+  PENDING: { label: 'Paiement en attente', style: 'bg-amber-50 text-amber-700' },
   PAID: { label: 'Payé', style: 'bg-emerald-50 text-emerald-700' },
   FAILED: { label: 'Paiement échoué', style: 'bg-red-50 text-red-700' },
   REFUNDED: { label: 'Remboursé', style: 'bg-stone-100 text-stone-600' },
@@ -42,11 +39,16 @@ export default function OrderTrackingPage() {
   const { orderId = '' } = useParams();
   const location = useLocation();
   const token = (location.state as { token?: string } | null)?.token;
+  const [params, setParams] = useSearchParams();
+  const returning = params.get('paiement') === 'retour';
 
   const [order, setOrder] = useState<OrderView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(returning);
 
-  // Actualisation toutes les 5 secondes (remplacée par le temps réel à l'étape 8)
+  // Actualisation de secours toutes les 30 secondes
   useEffect(() => {
     let stopped = false;
     let timer: number | undefined;
@@ -75,12 +77,12 @@ export default function OrderTrackingPage() {
       window.clearTimeout(timer);
     };
   }, [orderId]);
-    // Temps réel : la page se met à jour dès que le personnel change le statut
+
+  // Temps réel : la page se met à jour dès que le restaurant ou le prestataire fait avancer la commande
   useEffect(() => {
     const socket = getSocket();
     const subscribe = () => socket.emit('order:subscribe', { orderId });
 
-    // À la (re)connexion : on s'abonne et on récupère l'état exact
     const onConnect = () => {
       subscribe();
       api
@@ -104,6 +106,41 @@ export default function OrderTrackingPage() {
     };
   }, [orderId]);
 
+  // Retour de la page du prestataire : le SERVEUR vérifie le paiement (le client ne décide de rien)
+  useEffect(() => {
+    if (!returning) return;
+    let cancelled = false;
+    api
+      .refreshPayment(orderId)
+      .then(() => api.getOrder(orderId))
+      .then(({ order: fresh }) => {
+        if (!cancelled) setOrder(fresh);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) {
+          setChecking(false);
+          setParams({}, { replace: true });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [returning, orderId, setParams]);
+
+  const payMobileMoney = async () => {
+    if (paying) return;
+    setPaying(true);
+    setPayError(null);
+    try {
+      const { checkoutUrl } = await api.payMobileMoney(orderId);
+      window.location.assign(checkoutUrl);
+    } catch (e) {
+      setPayError(e instanceof ApiError ? e.message : 'Erreur inattendue');
+      setPaying(false);
+    }
+  };
+
   if (!order) {
     return (
       <main className="grid min-h-dvh place-items-center p-6 text-center">
@@ -118,6 +155,7 @@ export default function OrderTrackingPage() {
   const steps = ['Reçue', 'En préparation', 'Prête', order.type === 'TAKEAWAY' ? 'Récupérée' : 'Servie'];
   const { title, text } = headline(order);
   const payment = PAYMENT[order.paymentStatus];
+  const canPayOnline = order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED';
 
   return (
     <main className="mx-auto min-h-dvh max-w-lg space-y-4 px-4 pb-10 pt-8">
@@ -161,8 +199,30 @@ export default function OrderTrackingPage() {
         )}
 
         <p className={`mt-6 rounded-2xl px-4 py-3 text-sm font-medium ${payment.style}`}>
-          {payment.label}
+          {checking ? 'Vérification du paiement…' : payment.label}
         </p>
+
+        {canPayOnline && !checking && (
+          <div className="mt-3 space-y-2">
+            <p className="text-sm text-stone-500">
+              Vous pouvez régler à la caisse, ou payer maintenant par Mobile Money.
+            </p>
+            <button
+              type="button"
+              onClick={payMobileMoney}
+              disabled={paying}
+              className="w-full rounded-2xl bg-brand-500 px-5 py-3.5 font-semibold text-white shadow-lg shadow-brand-500/30 transition hover:bg-brand-600 active:scale-[0.98] disabled:opacity-60"
+            >
+              {paying ? 'Ouverture du paiement…' : 'Payer par Mobile Money'}
+            </button>
+            {payError && (
+              <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                {payError}
+              </p>
+            )}
+          </div>
+        )}
+
         {error && <p className="mt-3 text-xs text-stone-400">{error}</p>}
       </section>
 

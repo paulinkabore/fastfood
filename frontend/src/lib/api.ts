@@ -45,4 +45,15 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   getOrder: (id: string) => request<{ order: OrderView }>(`/public/orders/${id}`),
+  // Démarre un paiement Mobile Money : renvoie l'adresse de la page du prestataire
+  payMobileMoney: (orderId: string) =>
+    request<{ checkoutUrl: string; reused: boolean }>(`/public/orders/${orderId}/pay/mobile-money`, {
+      method: 'POST',
+    }),
+  // Demande au SERVEUR de vérifier l'état du paiement auprès du prestataire
+  refreshPayment: (orderId: string) =>
+    request<{ paymentStatus: string; outcome: string }>(
+      `/public/orders/${orderId}/pay/mobile-money/refresh`,
+      { method: 'POST' },
+    ),
 };

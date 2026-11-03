@@ -4,8 +4,8 @@ import type { MemberRole, OrderStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../lib/errors';
 import { asyncHandler } from '../../lib/asyncHandler';
-import { audit } from '../../lib/audit';
 import { orderInclude, presentOrder } from '../../lib/orderView';
+import { deductStockForOrder, restoreStockForOrder } from '../../lib/stock';
 import { emitOrderUpdated } from '../../lib/realtime';
 import { authenticate, requireRestaurantRole } from '../../middleware/auth';
 
@@ -112,37 +112,42 @@ ordersRouter.patch(
         throw new AppError(
           409,
           'ORDER_PAID',
-          'Commande déjà payée : le remboursement sera disponible à l’étape 10',
+          'Commande déjà payée : utilisez le remboursement pour l’annuler',
         );
       }
     }
 
-    // Mise à jour conditionnelle : si quelqu'un d'autre a changé le statut entre-temps, on refuse
-    const result = await prisma.order.updateMany({
-      where: { id: order.id, restaurantId, status: order.status },
-      data: { status, ...(status === 'CANCELLED' ? { cancelledReason: reason } : {}) },
-    });
-    if (result.count === 0) {
-      throw new AppError(409, 'ORDER_CHANGED', 'Cette commande vient d’être modifiée par quelqu’un d’autre');
-    }
-
-    if (status === 'CANCELLED') {
-      await audit({
-        userId: req.auth!.userId,
-        restaurantId,
-        action: 'ORDER_CANCELLED',
-        entity: 'Order',
-        entityId: order.id,
-        details: { number: order.number, reason: reason ?? null },
+    // Statut et stock changent dans la même transaction : tout réussit, ou rien
+    const updated = await prisma.$transaction(async (tx) => {
+      // Mise à jour conditionnelle : si quelqu'un d'autre a changé le statut entre-temps, on refuse
+      const result = await tx.order.updateMany({
+        where: { id: order.id, restaurantId, status: order.status },
+        data: { status, ...(status === 'CANCELLED' ? { cancelledReason: reason } : {}) },
       });
-    }
+      if (result.count === 0) {
+        throw new AppError(409, 'ORDER_CHANGED', 'Cette commande vient d’être modifiée par quelqu’un d’autre');
+      }
+
+      if (status === 'PREPARING') await deductStockForOrder(tx, order.id);
+
+      if (status === 'CANCELLED') {
+        await restoreStockForOrder(tx, order.id);
+        await tx.auditLog.create({
+          data: {
+            restaurantId,
+            userId: req.auth!.userId,
+            action: 'ORDER_CANCELLED',
+            entity: 'Order',
+            entityId: order.id,
+            details: { number: order.number, reason: reason ?? null },
+          },
+        });
+      }
+
+      return tx.order.findUniqueOrThrow({ where: { id: order.id }, include: orderInclude });
+    });
 
     void emitOrderUpdated(order.id);
-
-    const updated = await prisma.order.findUniqueOrThrow({
-      where: { id: order.id },
-      include: orderInclude,
-    });
     res.json({ order: presentOrder(updated) });
   }),
 );

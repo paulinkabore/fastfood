@@ -8,6 +8,7 @@ import { audit } from '../../lib/audit';
 import { orderInclude, presentOrder } from '../../lib/orderView';
 import { createOrder, orderItemSchema } from '../../lib/orderService';
 import { emitOrderCreated, emitOrderUpdated } from '../../lib/realtime';
+import { restoreStockForOrder } from '../../lib/stock';
 import { authenticate, requireRestaurantRole } from '../../middleware/auth';
 
 export const cashierRouter = Router({ mergeParams: true });
@@ -318,6 +319,11 @@ async function collectCash(opts: {
       where: { id: order.id },
       data: { paymentStatus: 'PAID' },
     });
+        // Un paiement Mobile Money encore en attente n'a plus lieu d'être
+    await tx.payment.updateMany({
+      where: { orderId: order.id, method: 'MOBILE_MONEY', status: 'PENDING' },
+      data: { status: 'FAILED', failureReason: 'Payé en espèces à la caisse' },
+    });
 
     await tx.auditLog.create({
       data: {
@@ -522,6 +528,9 @@ cashierRouter.post(
           ...(cancel ? { status: 'CANCELLED', cancelledReason: reason } : {}),
         },
       });
+
+      // Commande annulée par le remboursement : le stock déjà déduit est remis
+      if (cancel) await restoreStockForOrder(tx, order.id);
 
       await tx.auditLog.create({
         data: {

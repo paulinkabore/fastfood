@@ -7,6 +7,42 @@ import { Sheet } from './Sheet';
 import { Stepper } from './Stepper';
 import { CheckIcon, CloseIcon } from './icons';
 
+type Method = 'CASH' | 'MOBILE_MONEY';
+
+function MethodCard({
+  active,
+  title,
+  text,
+  onSelect,
+}: {
+  active: boolean;
+  title: string;
+  text: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex w-full items-start gap-3 rounded-2xl border-2 p-4 text-left transition ${
+        active ? 'border-brand-500 bg-brand-50' : 'border-stone-200 bg-white'
+      }`}
+    >
+      <span
+        className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
+          active ? 'border-brand-500 bg-brand-500 text-white' : 'border-stone-300'
+        }`}
+      >
+        {active && <CheckIcon className="h-3.5 w-3.5" />}
+      </span>
+      <span>
+        <span className="block font-medium">{title}</span>
+        <span className="block text-sm text-stone-600">{text}</span>
+      </span>
+    </button>
+  );
+}
+
 export function CartSheet({
   token,
   cart,
@@ -20,6 +56,7 @@ export function CartSheet({
   const submitting = useRef(false); // verrou immédiat contre le double clic
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [method, setMethod] = useState<Method>('CASH');
 
   const submit = async () => {
     if (submitting.current) return;
@@ -38,6 +75,16 @@ export function CartSheet({
         })),
       });
       cart.clear();
+
+      if (method === 'MOBILE_MONEY') {
+        try {
+          const { checkoutUrl } = await api.payMobileMoney(order.id);
+          window.location.assign(checkoutUrl); // page de paiement du prestataire
+          return;
+        } catch {
+          /* la commande existe : le client pourra payer depuis la page de suivi */
+        }
+      }
       navigate(`/commande/${order.id}`, { state: { token } });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Erreur inattendue, réessayez.');
@@ -104,23 +151,18 @@ export function CartSheet({
         <div>
           <h3 className="mb-2 text-sm font-semibold text-stone-700">Paiement</h3>
           <div className="space-y-2">
-            <div className="flex items-start gap-3 rounded-2xl border-2 border-brand-500 bg-brand-50 p-4">
-              <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand-500 text-white">
-                <CheckIcon className="h-3.5 w-3.5" />
-              </span>
-              <div>
-                <p className="font-medium">Espèces à la caisse</p>
-                <p className="text-sm text-stone-600">
-                  Vous réglez auprès du caissier, qui confirme le paiement.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between rounded-2xl border border-stone-200 p-4 opacity-60">
-              <span className="font-medium">Mobile Money</span>
-              <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-500">
-                Bientôt disponible
-              </span>
-            </div>
+            <MethodCard
+              active={method === 'CASH'}
+              title="Espèces à la caisse"
+              text="Vous réglez auprès du caissier, quand vous le souhaitez."
+              onSelect={() => setMethod('CASH')}
+            />
+            <MethodCard
+              active={method === 'MOBILE_MONEY'}
+              title="Mobile Money"
+              text="Vous payez maintenant sur votre téléphone, en toute sécurité."
+              onSelect={() => setMethod('MOBILE_MONEY')}
+            />
           </div>
         </div>
 
@@ -140,7 +182,11 @@ export function CartSheet({
           disabled={loading || cart.lines.length === 0}
           className="w-full rounded-2xl bg-stone-900 px-5 py-4 font-semibold text-white shadow-lg shadow-stone-900/20 transition active:scale-[0.98] disabled:opacity-60"
         >
-          {loading ? 'Envoi en cours…' : 'Confirmer la commande'}
+          {loading
+            ? 'Envoi en cours…'
+            : method === 'MOBILE_MONEY'
+              ? 'Commander et payer'
+              : 'Confirmer la commande'}
         </button>
       </div>
     </Sheet>
