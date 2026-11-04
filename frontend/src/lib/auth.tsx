@@ -20,7 +20,7 @@ async function call<T>(path: string, init: RequestInit = {}, token?: string | nu
     res = await fetch(`/api/v1${path}`, {
       ...init,
       headers: {
-        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(init.body && !(init.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...init.headers,
       },
@@ -67,6 +67,33 @@ export async function authRequest<T>(path: string, init?: RequestInit): Promise<
     }
     throw e;
   }
+}
+
+// Appel authentifié qui renvoie un fichier (image du QR code, PDF)
+export async function authBlob(path: string): Promise<Blob> {
+  const attempt = (token: string | null) =>
+    fetch(`/api/v1${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+
+  if (!accessToken) await refreshSession();
+  let res: Response;
+  try {
+    res = await attempt(accessToken);
+    if (res.status === 401) {
+      const token = await refreshSession();
+      if (token) res = await attempt(token);
+    }
+  } catch {
+    throw new ApiError(0, 'NETWORK', 'Connexion impossible. Vérifiez votre réseau.');
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new ApiError(
+      res.status,
+      data?.error?.code ?? 'ERROR',
+      data?.error?.message ?? 'Une erreur est survenue',
+    );
+  }
+  return res.blob();
 }
 
 type AuthContextValue = {

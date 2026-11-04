@@ -4,8 +4,10 @@ import { ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import type { StaffUser } from '../lib/types';
 
+// Chacun arrive sur son écran : gérant, caissier, serveur, cuisinier
 const homeFor = (u: StaffUser) => {
   const roles = u.memberships.map((m) => m.role);
+  if (roles.includes('MANAGER')) return '/gestion';
   if (roles.includes('CASHIER')) return '/caisse';
   if (roles.includes('WAITER')) return '/service';
   return '/cuisine';

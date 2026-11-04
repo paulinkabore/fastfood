@@ -6,6 +6,9 @@ import LoginPage from './pages/LoginPage';
 import KitchenPage from './pages/KitchenPage';
 import CashierPage from './pages/CashierPage';
 import ServicePage from './pages/ServicePage';
+import ManagerHomePage from './pages/gestion/ManagerHomePage';
+import TablesPage from './pages/gestion/TablesPage';
+import MenuPage from './pages/gestion/MenuPage';
 
 function NotFound() {
   return (
@@ -28,6 +31,9 @@ export default function App() {
       <Route path="/q/:token" element={<ClientMenuPage />} />
       <Route path="/commande/:orderId" element={<OrderTrackingPage />} />
       <Route path="/connexion" element={<LoginPage />} />
+      <Route path="/gestion" element={<ManagerHomePage />} />
+      <Route path="/gestion/tables" element={<TablesPage />} />
+      <Route path="/gestion/menu" element={<MenuPage />} />
       <Route path="/cuisine" element={<KitchenPage />} />
       <Route path="/caisse" element={<CashierPage />} />
       <Route path="/service" element={<ServicePage />} />
