@@ -8,6 +8,7 @@ import CashierPage from './pages/CashierPage';
 import ServicePage from './pages/ServicePage';
 import ManagerHomePage from './pages/gestion/ManagerHomePage';
 import TablesPage from './pages/gestion/TablesPage';
+import OrdersPage from './pages/gestion/OrdersPage';
 import MenuPage from './pages/gestion/MenuPage';
 import StockPage from './pages/gestion/StockPage';
 
@@ -34,6 +35,7 @@ export default function App() {
       <Route path="/connexion" element={<LoginPage />} />
       <Route path="/gestion" element={<ManagerHomePage />} />
       <Route path="/gestion/tables" element={<TablesPage />} />
+      <Route path="/gestion/commandes" element={<OrdersPage />} />
       <Route path="/gestion/menu" element={<MenuPage />} />
       <Route path="/gestion/stock" element={<StockPage />} />
       <Route path="/cuisine" element={<KitchenPage />} />

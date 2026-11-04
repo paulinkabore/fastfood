@@ -6,6 +6,7 @@ type Section = { title: string; text: string; to?: string };
 
 // Une section sans « to » est annoncée « Bientôt » : elle devient un lien quand l'écran est livré
 const SECTIONS: Section[] = [
+  { title: 'Commandes du jour', text: 'Suivre, annuler et rembourser les commandes.', to: '/gestion/commandes' },
   { title: 'Tables & QR codes', text: 'Créez vos tables, générez et imprimez les QR codes.', to: '/gestion/tables' },
   { title: 'Cuisine', text: 'Les commandes en direct, de la réception à « prête ».', to: '/cuisine' },
   { title: 'Caisse', text: 'Ouverture de caisse, encaissements, reçus, clôture.', to: '/caisse' },

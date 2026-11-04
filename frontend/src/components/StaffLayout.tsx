@@ -5,6 +5,7 @@ import { authRequest, useAuth } from '../lib/auth';
 // Les pages de gestion disponibles : une ligne s'ajoute à chaque nouvel écran
 const PAGES = [
   { to: '/gestion', label: 'Accueil', end: true },
+  { to: '/gestion/commandes', label: 'Commandes', end: false },
   { to: '/gestion/tables', label: 'Tables & QR', end: false },
   { to: '/gestion/menu', label: 'Menu', end: false },
   { to: '/gestion/stock', label: 'Stock', end: false },
