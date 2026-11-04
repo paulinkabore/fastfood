@@ -338,6 +338,7 @@ model CashSession {
 
 // ---------- Stocks ----------
 model Ingredient {
+  isActive       Boolean  @default(true)
   id             String   @id @default(uuid())
   restaurantId   String
   name           String

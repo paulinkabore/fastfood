@@ -7,6 +7,7 @@ const PAGES = [
   { to: '/gestion', label: 'Accueil', end: true },
   { to: '/gestion/tables', label: 'Tables & QR', end: false },
   { to: '/gestion/menu', label: 'Menu', end: false },
+  { to: '/gestion/stock', label: 'Stock', end: false },
 ];
 
 // Les écrans du personnel déjà existants

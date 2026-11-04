@@ -9,6 +9,7 @@ import ServicePage from './pages/ServicePage';
 import ManagerHomePage from './pages/gestion/ManagerHomePage';
 import TablesPage from './pages/gestion/TablesPage';
 import MenuPage from './pages/gestion/MenuPage';
+import StockPage from './pages/gestion/StockPage';
 
 function NotFound() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
       <Route path="/gestion" element={<ManagerHomePage />} />
       <Route path="/gestion/tables" element={<TablesPage />} />
       <Route path="/gestion/menu" element={<MenuPage />} />
+      <Route path="/gestion/stock" element={<StockPage />} />
       <Route path="/cuisine" element={<KitchenPage />} />
       <Route path="/caisse" element={<CashierPage />} />
       <Route path="/service" element={<ServicePage />} />

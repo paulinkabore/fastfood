@@ -11,7 +11,7 @@ const SECTIONS: Section[] = [
   { title: 'Caisse', text: 'Ouverture de caisse, encaissements, reçus, clôture.', to: '/caisse' },
   { title: 'Service', text: 'Les commandes par table, prêtes à servir.', to: '/service' },
   { title: 'Menu et produits', text: 'Catégories, prix, photos, options, disponibilité.', to: '/gestion/menu' },
-  { title: 'Stocks', text: 'Ingrédients, recettes, entrées, pertes, inventaire.' },
+  { title: 'Stocks', text: 'Ingrédients, recettes, entrées, pertes, inventaire.', to: '/gestion/stock' },
   { title: 'Statistiques', text: 'Chiffre d’affaires, produits populaires, exports.' },
   { title: 'Personnel', text: 'Comptes du personnel et leurs rôles.' },
 ];
