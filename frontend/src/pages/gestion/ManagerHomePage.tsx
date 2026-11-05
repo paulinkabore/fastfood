@@ -14,7 +14,7 @@ const SECTIONS: Section[] = [
   { title: 'Menu et produits', text: 'Catégories, prix, photos, options, disponibilité.', to: '/gestion/menu' },
   { title: 'Stocks', text: 'Ingrédients, recettes, entrées, pertes, inventaire.', to: '/gestion/stock' },
   { title: 'Statistiques', text: 'Chiffre d’affaires, produits populaires, exports.' },
-  { title: 'Personnel', text: 'Comptes du personnel et leurs rôles.' },
+  { title: 'Personnel', text: 'Comptes du personnel et leurs rôles.', to: '/gestion/personnel' },
 ];
 
 function Home() {
