@@ -6,6 +6,7 @@ import type { StaffUser } from '../lib/types';
 
 // Chacun arrive sur son écran : gérant, caissier, serveur, cuisinier
 const homeFor = (u: StaffUser) => {
+  if (u.globalRole === 'SUPER_ADMIN') return '/admin';
   const roles = u.memberships.map((m) => m.role);
   if (roles.includes('MANAGER')) return '/gestion';
   if (roles.includes('CASHIER')) return '/caisse';
