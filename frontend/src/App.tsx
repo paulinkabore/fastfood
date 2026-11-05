@@ -13,6 +13,7 @@ import OrdersPage from './pages/gestion/OrdersPage';
 import MenuPage from './pages/gestion/MenuPage';
 import StockPage from './pages/gestion/StockPage';
 import StaffPage from './pages/gestion/StaffPage';
+import StatsPage from './pages/gestion/StatsPage';
 
 function NotFound() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
       <Route path="/gestion/menu" element={<MenuPage />} />
       <Route path="/gestion/stock" element={<StockPage />} />
       <Route path="/gestion/personnel" element={<StaffPage />} />
+      <Route path="/gestion/statistiques" element={<StatsPage />} />
       <Route path="/cuisine" element={<KitchenPage />} />
       <Route path="/caisse" element={<CashierPage />} />
       <Route path="/service" element={<ServicePage />} />

@@ -10,6 +10,7 @@ const PAGES = [
   { to: '/gestion/menu', label: 'Menu', end: false },
   { to: '/gestion/stock', label: 'Stock', end: false },
   { to: '/gestion/personnel', label: 'Personnel', end: false },
+  { to: '/gestion/statistiques', label: 'Statistiques', end: false },
 ];
 
 // Les écrans du personnel déjà existants

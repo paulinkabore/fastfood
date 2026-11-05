@@ -13,7 +13,7 @@ const SECTIONS: Section[] = [
   { title: 'Service', text: 'Les commandes par table, prêtes à servir.', to: '/service' },
   { title: 'Menu et produits', text: 'Catégories, prix, photos, options, disponibilité.', to: '/gestion/menu' },
   { title: 'Stocks', text: 'Ingrédients, recettes, entrées, pertes, inventaire.', to: '/gestion/stock' },
-  { title: 'Statistiques', text: 'Chiffre d’affaires, produits populaires, exports.' },
+  { title: 'Statistiques', text: 'Chiffre d’affaires, produits populaires, exports.', to: '/gestion/statistiques' },
   { title: 'Personnel', text: 'Comptes du personnel et leurs rôles.', to: '/gestion/personnel' },
 ];
 
@@ -26,7 +26,7 @@ function Home() {
       <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200/70">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight">Avancement de l’application</h2>
+            <h2 className="text-xl font-semibold tracking-tight">Écrans de gestion disponibles</h2>
             <p className="mt-1 text-sm text-stone-500">
               {done} écran{done > 1 ? 's' : ''} disponible{done > 1 ? 's' : ''} sur {SECTIONS.length}
             </p>
