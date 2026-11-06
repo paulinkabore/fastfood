@@ -1,0 +1,22 @@
+name: Verify Vercel build
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [deploy/vercel-single-project]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Build backend and frontend
+        run: npm run build
