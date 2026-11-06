@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
+import { usePublicConfig } from '../lib/config';
 import { fcfa } from '../lib/format';
 import { unitPrice, type Cart } from '../features/order/useCart';
 import { Sheet } from './Sheet';
@@ -57,6 +58,7 @@ export function CartSheet({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [method, setMethod] = useState<Method>('CASH');
+  const { mobileMoney } = usePublicConfig();
 
   const submit = async () => {
     if (submitting.current) return;
@@ -157,12 +159,14 @@ export function CartSheet({
               text="Vous réglez auprès du caissier, quand vous le souhaitez."
               onSelect={() => setMethod('CASH')}
             />
-            <MethodCard
-              active={method === 'MOBILE_MONEY'}
-              title="Mobile Money"
-              text="Vous payez maintenant sur votre téléphone, en toute sécurité."
-              onSelect={() => setMethod('MOBILE_MONEY')}
-            />
+            {mobileMoney && (
+              <MethodCard
+                active={method === 'MOBILE_MONEY'}
+                title="Mobile Money"
+                text="Vous payez maintenant sur votre téléphone, en toute sécurité."
+                onSelect={() => setMethod('MOBILE_MONEY')}
+              />
+            )}
           </div>
         </div>
 

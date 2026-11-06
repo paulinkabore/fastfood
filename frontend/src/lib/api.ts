@@ -45,6 +45,7 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   getOrder: (id: string) => request<{ order: OrderView }>(`/public/orders/${id}`),
+  getConfig: () => request<{ mobileMoney: boolean }>('/public/config'),
   // Démarre un paiement Mobile Money : renvoie l'adresse de la page du prestataire
   payMobileMoney: (orderId: string) =>
     request<{ checkoutUrl: string; reused: boolean }>(`/public/orders/${orderId}/pay/mobile-money`, {

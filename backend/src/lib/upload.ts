@@ -3,8 +3,9 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { AppError } from './errors';
+import { env } from '../config/env';
 
-export const UPLOAD_ROOT = path.resolve(process.cwd(), 'uploads');
+export const UPLOAD_ROOT = path.resolve(process.cwd(), env.UPLOAD_DIR);
 
 const EXT: Record<string, string> = {
   'image/jpeg': '.jpg',

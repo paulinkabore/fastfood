@@ -19,10 +19,12 @@ import { publicOrdersRouter } from './modules/public/orders.routes';
 import { publicPaymentsRouter, webhooksRouter } from './modules/payments/payments.routes';
 import { mockRouter } from './modules/payments/mock.routes';
 import { errorHandler } from './middleware/errorHandler';
+import { helmetOptions, setupProduction } from './lib/production';
 
 export const app = express();
 
-app.use(helmet());
+app.set('trust proxy', env.TRUST_PROXY);
+app.use(helmet(helmetOptions));
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
 app.use(
   express.json({
@@ -59,5 +61,7 @@ app.use('/api/v1/restaurants/:restaurantId', stockRouter);
 if (env.NODE_ENV !== 'production' && env.PAYMENT_PROVIDER === 'mock') {
   app.use('/api/v1/dev', mockRouter);
 }
+
+setupProduction(app);
 
 app.use(errorHandler);

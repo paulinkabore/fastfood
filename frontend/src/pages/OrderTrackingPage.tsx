@@ -3,6 +3,7 @@ import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api';
 import { fcfa } from '../lib/format';
 import { getSocket } from '../lib/socket';
+import { usePublicConfig } from '../lib/config';
 import type { OrderView, PaymentStatus } from '../lib/types';
 import { CheckIcon } from '../components/icons';
 
@@ -47,6 +48,7 @@ export default function OrderTrackingPage() {
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
   const [checking, setChecking] = useState(returning);
+  const { mobileMoney } = usePublicConfig();
 
   // Actualisation de secours toutes les 30 secondes
   useEffect(() => {
@@ -155,7 +157,7 @@ export default function OrderTrackingPage() {
   const steps = ['Reçue', 'En préparation', 'Prête', order.type === 'TAKEAWAY' ? 'Récupérée' : 'Servie'];
   const { title, text } = headline(order);
   const payment = PAYMENT[order.paymentStatus];
-  const canPayOnline = order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED';
+  const canPayOnline = order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED' && mobileMoney;
 
   return (
     <main className="mx-auto min-h-dvh max-w-lg space-y-4 px-4 pb-10 pt-8">
