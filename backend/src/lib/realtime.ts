@@ -21,6 +21,7 @@ const reply = (ack: unknown, response: Reply) => {
 
 export function initRealtime(httpServer: HttpServer) {
   io = new Server(httpServer, {
+    path: '/api/socket.io',
     cors: { origin: env.CORS_ORIGIN, credentials: true },
   });
 
