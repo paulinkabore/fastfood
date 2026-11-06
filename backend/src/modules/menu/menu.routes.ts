@@ -234,7 +234,7 @@ menuRouter.delete(
       prisma.productOption.deleteMany({ where: { productId: product.id } }),
       prisma.product.delete({ where: { id: product.id } }),
     ]);
-    removeImage(product.imageUrl);
+    await removeImage(product.imageUrl);
     await audit({
       userId: req.auth!.userId,
       restaurantId: rid(req),
