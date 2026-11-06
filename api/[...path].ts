@@ -1,5 +1,9 @@
+import { createServer } from 'node:http';
 import { app } from '../backend/src/app';
+import { initRealtime } from '../backend/src/lib/realtime';
 
-// Vercel appelle cette fonction pour toutes les routes /api/*.
-// Express conserve les routes existantes sous /api/v1.
-export default app;
+// Vercel expose Express et Socket.IO dans la même fonction Node.js.
+const server = createServer(app);
+initRealtime(server);
+
+export default server;
