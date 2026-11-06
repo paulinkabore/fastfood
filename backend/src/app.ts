@@ -3,7 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { env } from './config/env';
-import { UPLOAD_ROOT } from './lib/upload';
 import { authRouter } from './modules/auth/auth.routes';
 import { adminRouter } from './modules/admin/admin.routes';
 import { menuRouter } from './modules/menu/menu.routes';
@@ -34,9 +33,6 @@ app.use(
   }),
 );
 app.use(cookieParser());
-
-// Photos des produits
-app.use('/uploads', express.static(UPLOAD_ROOT, { maxAge: '7d' }));
 
 app.get('/api/v1/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
