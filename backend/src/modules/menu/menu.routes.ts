@@ -1,5 +1,4 @@
 import { Router, type Request } from 'express';
-import fs from 'fs';
 import { z } from 'zod';
 import type { MemberRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
@@ -7,7 +6,7 @@ import { AppError } from '../../lib/errors';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { audit } from '../../lib/audit';
 import { authenticate, requireRestaurantRole } from '../../middleware/auth';
-import { uploadImage, publicImageUrl, assertImageContent, removeImage } from '../../lib/upload';
+import { uploadImage, assertImageContent, saveProductImage, removeImage } from '../../lib/upload';
 
 // mergeParams : récupère :restaurantId défini dans app.ts
 export const menuRouter = Router({ mergeParams: true });
@@ -199,17 +198,19 @@ menuRouter.post(
   asyncHandler(async (req, res) => {
     const file = req.file;
     if (!file) throw new AppError(400, 'NO_FILE', 'Aucune image envoyée (champ "image")');
+    await assertImageContent(file.buffer);
+    const product = await findProduct(String(req.params.id), rid(req));
+    const blob = await saveProductImage(rid(req), file.buffer, file.mimetype);
+
     try {
-      await assertImageContent(file.path);
-      const product = await findProduct(String(req.params.id), rid(req));
       const updated = await prisma.product.update({
         where: { id: product.id },
-        data: { imageUrl: publicImageUrl(rid(req), file.filename) },
+        data: { imageUrl: blob.url },
       });
-      removeImage(product.imageUrl); // supprime l'ancienne photo
+      await removeImage(product.imageUrl); // supprime l'ancienne photo après la mise à jour
       res.json({ product: updated });
     } catch (err) {
-      await fs.promises.unlink(file.path).catch(() => {}); // pas de fichier orphelin
+      await removeImage(blob.url); // évite une image orpheline si la base refuse la mise à jour
       throw err;
     }
   }),
