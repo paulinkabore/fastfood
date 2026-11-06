@@ -46,7 +46,7 @@ export function useLiveOrders(restaurantId: string) {
     const socket = io({
       path: '/api/socket.io',
       auth: (cb) => cb({ token: getAccessToken() }),
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],
     });
 
     socket.on('connect', () => {
