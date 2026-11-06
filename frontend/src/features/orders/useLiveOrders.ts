@@ -44,6 +44,7 @@ export function useLiveOrders(restaurantId: string) {
     const poll = window.setInterval(() => void loadRef.current(), 60_000);
 
     const socket = io({
+      path: '/api/socket.io',
       auth: (cb) => cb({ token: getAccessToken() }),
       transports: ['websocket', 'polling'],
     });
