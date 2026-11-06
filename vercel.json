@@ -5,7 +5,7 @@
   "outputDirectory": "frontend/dist",
   "functions": {
     "api/[...path].ts": {
-      "maxDuration": 30
+      "maxDuration": 300
     }
   },
   "rewrites": [
