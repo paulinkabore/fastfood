@@ -65,3 +65,6 @@ if (env.NODE_ENV !== 'production' && env.PAYMENT_PROVIDER === 'mock') {
 setupProduction(app);
 
 app.use(errorHandler);
+
+// Vercel exécute l'application comme une fonction : il lui faut cet export par défaut
+export default app;

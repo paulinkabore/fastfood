@@ -1,4 +1,5 @@
 import multer from 'multer';
+import type { RequestHandler } from 'express';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -23,7 +24,7 @@ const storage = multer.diskStorage({
   filename: (_req, file, cb) => cb(null, crypto.randomUUID() + EXT[file.mimetype]),
 });
 
-export const uploadImage = multer({
+const multerImage = multer({
   storage,
   limits: { fileSize: 2 * 1024 * 1024, files: 1 },
   fileFilter: (_req, file, cb) => {
@@ -33,6 +34,16 @@ export const uploadImage = multer({
     cb(null, true);
   },
 }).single('image');
+
+// Sur Vercel le disque est en lecture seule : on refuse proprement au lieu de planter
+export const uploadImage: RequestHandler = (req, res, next) => {
+  if (process.env.VERCEL) {
+    return next(
+      new AppError(503, 'PHOTOS_UNAVAILABLE', "L'envoi de photos n'est pas disponible sur cet hébergement"),
+    );
+  }
+  multerImage(req, res, next);
+};
 
 export const publicImageUrl = (restaurantId: string, filename: string) =>
   `/uploads/products/${restaurantId}/${filename}`;

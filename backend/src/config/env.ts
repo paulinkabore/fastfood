@@ -1,12 +1,17 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
+// Sur Vercel, l'adresse publique est connue automatiquement (sans https:// dans la variable)
+const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : undefined;
+
 const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().default(4000),
-    CORS_ORIGIN: z.string().default('http://localhost:5173'),
-    PUBLIC_APP_URL: z.string().url().default('http://localhost:5173'),
+    CORS_ORIGIN: z.string().default(vercelUrl ?? 'http://localhost:5173'),
+    PUBLIC_APP_URL: z.string().url().default(vercelUrl ?? 'http://localhost:5173'),
     DATABASE_URL: z.string().min(1),
     JWT_ACCESS_SECRET: z.string().min(32),
     // none = espèces seulement ; mock = simulation (développement uniquement)

@@ -3,6 +3,7 @@ import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api';
 import { fcfa } from '../lib/format';
 import { getSocket } from '../lib/socket';
+import { REALTIME } from '../lib/realtime';
 import { usePublicConfig } from '../lib/config';
 import type { OrderView, PaymentStatus } from '../lib/types';
 import { CheckIcon } from '../components/icons';
@@ -82,6 +83,7 @@ export default function OrderTrackingPage() {
 
   // Temps réel : la page se met à jour dès que le restaurant ou le prestataire fait avancer la commande
   useEffect(() => {
+    if (!REALTIME) return;
     const socket = getSocket();
     const subscribe = () => socket.emit('order:subscribe', { orderId });
 

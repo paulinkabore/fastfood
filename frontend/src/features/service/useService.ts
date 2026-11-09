@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
+import { POLL_MS, REALTIME } from '../../lib/realtime';
 import { ApiError } from '../../lib/api';
 import { authRequest, getAccessToken, refreshSession } from '../../lib/auth';
 import type { OrderView } from '../../lib/types';
@@ -53,7 +54,9 @@ export function useService(restaurantId: string, onReady: () => void) {
     void load();
 
     // Actualisation de secours toutes les 60 secondes
-    const poll = window.setInterval(() => void load(), 60_000);
+    const poll = window.setInterval(() => void load(), POLL_MS);
+
+    if (!REALTIME) return () => window.clearInterval(poll);
 
     const socket = io({
       auth: (cb) => cb({ token: getAccessToken() }),
