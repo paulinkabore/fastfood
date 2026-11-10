@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RequireRole } from '../components/RequireRole';
+import { StaffLayout } from '../components/StaffLayout';
 import { CloseSessionSheet } from '../components/CloseSessionSheet';
 import { CollectSheet } from '../components/CollectSheet';
 import { CounterOrderSheet } from '../components/CounterOrderSheet';
@@ -140,7 +141,8 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
     }`;
 
   return (
-    <div className="min-h-dvh pb-24">
+    <div className={readOnly ? undefined : 'min-h-dvh pb-24'}>
+      {!readOnly && (
       <header className="sticky top-0 z-20 border-b border-stone-200/70 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div>
@@ -165,8 +167,9 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
           </button>
         </div>
       </header>
+      )}
 
-      <main className="mx-auto max-w-5xl space-y-6 p-4">
+      <div className={readOnly ? 'space-y-6' : 'mx-auto max-w-5xl space-y-6 p-4'}>
         {(error || actionError) && (
           <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {actionError ?? error}
@@ -288,7 +291,7 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
             </div>
           )}
         </section>
-      </main>
+      </div>
 
       {collecting && (
         <CollectSheet
@@ -336,9 +339,15 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
 export default function CashierPage() {
   return (
     <RequireRole roles={['CASHIER', 'MANAGER']}>
-      {({ restaurantId, role }) => (
-        <Cashier key={restaurantId} restaurantId={restaurantId} readOnly={role === 'MANAGER'} />
-      )}
+      {({ restaurantId, role }) =>
+        role === 'MANAGER' ? (
+          <StaffLayout restaurantId={restaurantId} title="Caisse">
+            <Cashier key={restaurantId} restaurantId={restaurantId} readOnly />
+          </StaffLayout>
+        ) : (
+          <Cashier key={restaurantId} restaurantId={restaurantId} readOnly={false} />
+        )
+      }
     </RequireRole>
   );
 }

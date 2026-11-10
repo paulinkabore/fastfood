@@ -6,7 +6,6 @@ import LoginPage from './pages/LoginPage';
 import KitchenPage from './pages/KitchenPage';
 import CashierPage from './pages/CashierPage';
 import ServicePage from './pages/ServicePage';
-import ManagerHomePage from './pages/gestion/ManagerHomePage';
 import TablesPage from './pages/gestion/TablesPage';
 import AdminPage from './pages/admin/AdminPage';
 import OrdersPage from './pages/gestion/OrdersPage';
@@ -36,7 +35,7 @@ export default function App() {
       <Route path="/q/:token" element={<ClientMenuPage />} />
       <Route path="/commande/:orderId" element={<OrderTrackingPage />} />
       <Route path="/connexion" element={<LoginPage />} />
-      <Route path="/gestion" element={<ManagerHomePage />} />
+      <Route path="/gestion" element={<Navigate to="/gestion/statistiques" replace />} />
       <Route path="/gestion/tables" element={<TablesPage />} />
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/gestion/commandes" element={<OrdersPage />} />

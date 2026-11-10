@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RequireRole } from '../components/RequireRole';
+import { StaffLayout } from '../components/StaffLayout';
 import { ApiError } from '../lib/api';
 import { authRequest, useAuth } from '../lib/auth';
 import { beep, unlockAudio } from '../lib/sound';
@@ -166,7 +167,8 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
   const restaurantName = orders[0]?.restaurantName;
 
   return (
-    <div className="min-h-dvh">
+    <div className={readOnly ? undefined : 'min-h-dvh'}>
+      {!readOnly && (
       <header className="sticky top-0 z-20 border-b border-stone-200/70 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div>
@@ -210,8 +212,9 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
           </div>
         </div>
       </header>
+      )}
 
-      <main className="mx-auto max-w-7xl p-4">
+      <div className={readOnly ? undefined : 'mx-auto max-w-7xl p-4'}>
         {readOnly && (
           <p className="mb-4 rounded-2xl bg-stone-100 px-4 py-3 text-sm font-medium text-stone-600">
             Consultation seule : le gérant peut voir ces commandes mais pas les modifier.
@@ -264,7 +267,7 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
             })}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }
@@ -272,9 +275,15 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
 export default function KitchenPage() {
   return (
     <RequireRole roles={['COOK', 'MANAGER']}>
-      {({ restaurantId, role }) => (
-        <Kitchen key={restaurantId} restaurantId={restaurantId} readOnly={role === 'MANAGER'} />
-      )}
+      {({ restaurantId, role }) =>
+        role === 'MANAGER' ? (
+          <StaffLayout restaurantId={restaurantId} title="Cuisine">
+            <Kitchen key={restaurantId} restaurantId={restaurantId} readOnly />
+          </StaffLayout>
+        ) : (
+          <Kitchen key={restaurantId} restaurantId={restaurantId} readOnly={false} />
+        )
+      }
     </RequireRole>
   );
 }

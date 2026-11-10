@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RequireRole } from '../components/RequireRole';
+import { StaffLayout } from '../components/StaffLayout';
 import { ApiError } from '../lib/api';
 import { authRequest, useAuth } from '../lib/auth';
 import { fcfa } from '../lib/format';
@@ -156,7 +157,8 @@ function Service({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
     }`;
 
   return (
-    <div className="min-h-dvh">
+    <div className={readOnly ? undefined : 'min-h-dvh'}>
+      {!readOnly && (
       <header className="sticky top-0 z-20 border-b border-stone-200/70 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div>
@@ -200,8 +202,9 @@ function Service({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
           </div>
         </div>
       </header>
+      )}
 
-      <main className="mx-auto max-w-6xl space-y-5 p-4">
+      <div className={readOnly ? 'space-y-5' : 'mx-auto max-w-6xl space-y-5 p-4'}>
         {readOnly && (
           <p className="rounded-2xl bg-stone-100 px-4 py-3 text-sm font-medium text-stone-600">
             Consultation seule : le gérant peut voir ces commandes mais pas les modifier.
@@ -272,7 +275,7 @@ function Service({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
             ))}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }
@@ -280,9 +283,15 @@ function Service({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
 export default function ServicePage() {
   return (
     <RequireRole roles={['WAITER', 'MANAGER']}>
-      {({ restaurantId, role }) => (
-        <Service key={restaurantId} restaurantId={restaurantId} readOnly={role === 'MANAGER'} />
-      )}
+      {({ restaurantId, role }) =>
+        role === 'MANAGER' ? (
+          <StaffLayout restaurantId={restaurantId} title="Serveur">
+            <Service key={restaurantId} restaurantId={restaurantId} readOnly />
+          </StaffLayout>
+        ) : (
+          <Service key={restaurantId} restaurantId={restaurantId} readOnly={false} />
+        )
+      }
     </RequireRole>
   );
 }

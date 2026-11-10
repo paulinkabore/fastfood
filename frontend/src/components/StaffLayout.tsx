@@ -1,23 +1,102 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { authRequest, useAuth } from '../lib/auth';
 
-// Les pages de gestion disponibles : une ligne s'ajoute à chaque nouvel écran
-const PAGES = [
-  { to: '/gestion', label: 'Accueil', end: true },
-  { to: '/gestion/commandes', label: 'Commandes', end: false },
-  { to: '/gestion/tables', label: 'Tables & QR', end: false },
-  { to: '/gestion/menu', label: 'Menu', end: false },
-  { to: '/gestion/stock', label: 'Stock', end: false },
-  { to: '/gestion/personnel', label: 'Personnel', end: false },
-  { to: '/gestion/statistiques', label: 'Statistiques', end: false },
-];
+type IconProps = { className?: string };
 
-// Les écrans du personnel déjà existants
-const SCREENS = [
-  { to: '/cuisine', label: 'Cuisine' },
-  { to: '/caisse', label: 'Caisse' },
-  { to: '/serveur', label: 'Serveur' },
+const icon = {
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.8,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  viewBox: '0 0 24 24',
+} as const;
+
+const ChartIcon = ({ className = 'h-5 w-5' }: IconProps) => (
+  <svg {...icon} className={className}>
+    <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+  </svg>
+);
+const ReceiptIcon = ({ className = 'h-5 w-5' }: IconProps) => (
+  <svg {...icon} className={className}>
+    <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3zM9 8h6M9 12h6" />
+  </svg>
+);
+const MenuBookIcon = ({ className = 'h-5 w-5' }: IconProps) => (
+  <svg {...icon} className={className}>
+    <path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 2-3 5-3 8h3v10V3z" />
+  </svg>
+);
+const QrIcon = ({ className = 'h-5 w-5' }: IconProps) => (
+  <svg {...icon} className={className}>
+    <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h3v3h-3zM20 14v.01M14 20h3M20 17v3" />
+  </svg>
+);
+const BoxIcon = ({ className = 'h-5 w-5' }: IconProps) => (
+  <svg {...icon} className={className}>
+    <path d="M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8" />
+  </svg>
+);
+const UsersIcon = ({ className = 'h-5 w-5' }: IconProps) => (
+  <svg {...icon} className={className}>
+    <path d="M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21 20v-1a4 4 0 0 0-3-3.9M16 4.2a3.5 3.5 0 0 1 0 6.6" />
+  </svg>
+);
+const FlameIcon = ({ className = 'h-5 w-5' }: IconProps) => (
+  <svg {...icon} className={className}>
+    <path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z" />
+  </svg>
+);
+const WalletIcon = ({ className = 'h-5 w-5' }: IconProps) => (
+  <svg {...icon} className={className}>
+    <path d="M3 7a2 2 0 0 1 2-2h13v4M3 7v11a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H5a2 2 0 0 1-2-2zM16 14.5h.01" />
+  </svg>
+);
+const BellIcon = ({ className = 'h-5 w-5' }: IconProps) => (
+  <svg {...icon} className={className}>
+    <path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4l2-2zM10 21h4" />
+  </svg>
+);
+const BurgerIcon = ({ className = 'h-6 w-6' }: IconProps) => (
+  <svg {...icon} className={className}>
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </svg>
+);
+const CloseIcon = ({ className = 'h-6 w-6' }: IconProps) => (
+  <svg {...icon} className={className}>
+    <path d="M6 6l12 12M18 6L6 18" />
+  </svg>
+);
+
+type Item = { to: string; label: string; Icon: (p: IconProps) => ReactNode };
+
+// Toutes les fonctionnalités du gérant, regroupées ici
+const GROUPS: { label: string; items: Item[] }[] = [
+  {
+    label: 'Pilotage',
+    items: [
+      { to: '/gestion/statistiques', label: 'Statistiques', Icon: ChartIcon },
+      { to: '/gestion/commandes', label: 'Commandes du jour', Icon: ReceiptIcon },
+    ],
+  },
+  {
+    label: 'Restaurant',
+    items: [
+      { to: '/gestion/menu', label: 'Menu et produits', Icon: MenuBookIcon },
+      { to: '/gestion/tables', label: 'Tables & QR', Icon: QrIcon },
+      { to: '/gestion/stock', label: 'Stock', Icon: BoxIcon },
+      { to: '/gestion/personnel', label: 'Personnel', Icon: UsersIcon },
+    ],
+  },
+  {
+    label: 'Consultation',
+    items: [
+      { to: '/cuisine', label: 'Cuisine', Icon: FlameIcon },
+      { to: '/caisse', label: 'Caisse', Icon: WalletIcon },
+      { to: '/serveur', label: 'Serveur', Icon: BellIcon },
+    ],
+  },
 ];
 
 export function StaffLayout({
@@ -31,7 +110,9 @@ export function StaffLayout({
 }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [name, setName] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,50 +126,130 @@ export function StaffLayout({
     };
   }, [restaurantId]);
 
-  const pill = ({ isActive }: { isActive: boolean }) =>
-    `shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
-      isActive ? 'bg-stone-900 text-white' : 'bg-white text-stone-600 ring-1 ring-stone-200'
+  // Le menu se referme après chaque navigation
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname]);
+
+  // Échap referme le menu ; le fond ne défile pas pendant qu'il est ouvert
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
+  const link = ({ isActive }: { isActive: boolean }) =>
+    `flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition lg:py-2.5 ${
+      isActive
+        ? 'bg-brand-50 text-brand-600 shadow-sm ring-1 ring-brand-100'
+        : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
     }`;
 
+  const restaurant = name ?? 'Restaurant';
+
   return (
-    <div className="min-h-dvh pb-16">
-      <header className="sticky top-0 z-20 border-b border-stone-200/70 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-widest text-brand-600">
-              {name ?? 'Restaurant'}
-            </p>
-            <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
+    <div className="min-h-dvh lg:pl-64">
+      {open && (
+        <button
+          type="button"
+          aria-label="Fermer le menu"
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-30 bg-stone-900/40 backdrop-blur-[2px] lg:hidden"
+        />
+      )}
+
+      <aside
+        id="menu-gestion"
+        aria-label="Menu de gestion"
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col border-r border-stone-200/70 bg-white transition-[transform,visibility] duration-200 lg:w-64 lg:visible lg:translate-x-0 ${
+          open ? 'visible translate-x-0 shadow-2xl' : 'invisible -translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-stone-100 px-4 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-brand-500 text-base font-bold text-white shadow-md shadow-brand-500/30">
+              {restaurant.charAt(0).toUpperCase()}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-semibold tracking-tight">{restaurant}</p>
+              <p className="text-xs text-stone-500">Espace gérant</p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            {user && <span className="hidden text-sm text-stone-500 sm:inline">{user.fullName}</span>}
-            <button
-              type="button"
-              onClick={async () => {
-                await logout();
-                navigate('/connexion', { replace: true });
-              }}
-              className="rounded-full bg-stone-100 px-4 py-2 text-sm font-medium text-stone-600"
-            >
-              Déconnexion
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Fermer le menu"
+            className="grid h-10 w-10 place-items-center rounded-full text-stone-500 hover:bg-stone-100 lg:hidden"
+          >
+            <CloseIcon />
+          </button>
         </div>
-        <nav className="no-scrollbar mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 pb-3">
-          {PAGES.map((p) => (
-            <NavLink key={p.to} to={p.to} end={p.end} className={pill}>
-              {p.label}
-            </NavLink>
-          ))}
-          <span className="mx-1 w-px shrink-0 bg-stone-200" />
-          {SCREENS.map((s) => (
-            <NavLink key={s.to} to={s.to} className="shrink-0 rounded-full px-3 py-2 text-sm font-medium text-stone-500 hover:text-stone-900">
-              {s.label} ↗
-            </NavLink>
+
+        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+          {GROUPS.map((g) => (
+            <div key={g.label}>
+              <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-widest text-stone-400">
+                {g.label}
+              </p>
+              <div className="space-y-1">
+                {g.items.map(({ to, label, Icon }) => (
+                  <NavLink key={to} to={to} className={link}>
+                    <Icon className="h-5 w-5 shrink-0" />
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
+
+        <div className="border-t border-stone-100 p-3">
+          {user && (
+            <p className="mb-2 truncate px-3 text-sm text-stone-500">{user.fullName}</p>
+          )}
+          <button
+            type="button"
+            onClick={async () => {
+              await logout();
+              navigate('/connexion', { replace: true });
+            }}
+            className="w-full rounded-xl bg-stone-100 px-3 py-3 text-sm font-medium text-stone-700 transition hover:bg-stone-200 lg:py-2.5"
+          >
+            Déconnexion
+          </button>
+        </div>
+      </aside>
+
+      <header className="sticky top-0 z-20 border-b border-stone-200/70 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="Ouvrir le menu"
+            aria-expanded={open}
+            aria-controls="menu-gestion"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-stone-100 text-stone-700 transition active:scale-95 lg:hidden"
+          >
+            <BurgerIcon />
+          </button>
+          <div className="min-w-0">
+            <p className="truncate text-xs font-medium uppercase tracking-widest text-brand-600">
+              {restaurant}
+            </p>
+            <h1 className="truncate text-lg font-semibold tracking-tight">{title}</h1>
+          </div>
+        </div>
       </header>
-      <main className="mx-auto max-w-6xl space-y-6 p-4">{children}</main>
+
+      <main className="mx-auto max-w-6xl space-y-6 p-4 pb-16">{children}</main>
     </div>
   );
 }
