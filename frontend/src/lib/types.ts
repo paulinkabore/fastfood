@@ -15,7 +15,7 @@ export type MenuCategory = { id: string; name: string; products: MenuProduct[] }
 
 export type PublicMenu = {
   restaurant: { name: string; slug: string };
-  orderType: 'DINE_IN' | 'TAKEAWAY';
+  orderType: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
   table: { label: string } | null;
   menu: MenuCategory[];
 };
@@ -28,12 +28,14 @@ export type OrderView = {
   id: string;
   restaurantId?: string;
   number: number;
-  type: 'DINE_IN' | 'TAKEAWAY';
+  type: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   sentToKitchenAt?: string | null;
   totalFcfa: number;
   notes: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
   createdAt: string;
   restaurantName: string;
   tableLabel: string | null;
@@ -84,7 +86,7 @@ export type ReceiptView = {
   receiptNumber: number | null;
   orderNumber: number;
   issuedAt: string;
-  orderType: 'DINE_IN' | 'TAKEAWAY';
+  orderType: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
   tableLabel: string | null;
   items: {
     productName: string;

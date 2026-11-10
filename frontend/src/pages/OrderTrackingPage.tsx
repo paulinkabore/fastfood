@@ -7,6 +7,7 @@ import { REALTIME } from '../lib/realtime';
 import { usePublicConfig } from '../lib/config';
 import type { OrderView, PaymentStatus } from '../lib/types';
 import { CheckIcon } from '../components/icons';
+import { placeLabel } from '../lib/orderPlace';
 
 const STEP_INDEX = { RECEIVED: 0, PREPARING: 1, READY: 2, SERVED: 3, CANCELLED: -1 } as const;
 
@@ -19,16 +20,19 @@ const PAYMENT: Record<PaymentStatus, { label: string; style: string }> = {
 
 function headline(order: OrderView): { title: string; text: string } {
   const takeaway = order.type === 'TAKEAWAY';
+  const delivery = order.type === 'DELIVERY';
   switch (order.status) {
     case 'RECEIVED':
       return { title: 'Commande reçue', text: 'Le restaurant a bien reçu votre commande.' };
     case 'PREPARING':
       return { title: 'En préparation', text: 'Votre commande est en cours de préparation.' };
     case 'READY':
+      if (delivery) return { title: 'Prête !', text: 'Le livreur va vous appeler pour organiser la livraison.' };
       return takeaway
         ? { title: 'Prête !', text: 'Vous pouvez venir la récupérer au comptoir.' }
         : { title: 'Prête !', text: 'Elle arrive à votre table.' };
     case 'SERVED':
+      if (delivery) return { title: 'Commande livrée', text: 'Merci et à bientôt !' };
       return takeaway
         ? { title: 'Commande récupérée', text: 'Merci et à bientôt !' }
         : { title: 'Bon appétit !', text: 'Votre commande a été servie.' };
@@ -156,7 +160,7 @@ export default function OrderTrackingPage() {
   }
 
   const index = STEP_INDEX[order.status];
-  const steps = ['Reçue', 'En préparation', 'Prête', order.type === 'TAKEAWAY' ? 'Récupérée' : 'Servie'];
+  const steps = ['Reçue', 'En préparation', 'Prête', order.type === 'DELIVERY' ? 'Livrée' : order.type === 'TAKEAWAY' ? 'Récupérée' : 'Servie'];
   const { title, text } = headline(order);
   const payment = PAYMENT[order.paymentStatus];
   const canPayOnline = order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED' && mobileMoney;
@@ -165,12 +169,18 @@ export default function OrderTrackingPage() {
     <main className="mx-auto min-h-dvh max-w-lg space-y-4 px-4 pb-10 pt-8">
       <section className="rounded-3xl bg-white p-6 text-center shadow-sm ring-1 ring-stone-200/70">
         <p className="text-sm font-medium text-stone-500">
-          {order.restaurantName} · {order.tableLabel ?? 'À emporter'}
+          {order.restaurantName} · {placeLabel(order)}
         </p>
         <p className="mt-3 text-sm uppercase tracking-widest text-stone-400">Commande</p>
         <p className="text-6xl font-semibold tracking-tight text-brand-500">#{order.number}</p>
         <h1 className="mt-4 text-xl font-semibold tracking-tight">{title}</h1>
         <p className="mt-1 text-sm text-stone-500">{text}</p>
+        {order.type === 'DELIVERY' && order.customerPhone && (
+          <p className="mt-3 rounded-2xl bg-stone-50 px-4 py-3 text-sm text-stone-600">
+            Le livreur vous appellera au <strong className="text-stone-900">{order.customerPhone}</strong>{' '}
+            pour convenir du prix de la livraison.
+          </p>
+        )}
 
         {index >= 0 && (
           <ol className="mt-7 flex items-start">

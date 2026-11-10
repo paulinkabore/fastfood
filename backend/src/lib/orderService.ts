@@ -18,6 +18,8 @@ export type NewOrderInput = {
   qrCodeId: string | null;
   createdById: string | null;
   notes?: string;
+  customerName?: string;
+  customerPhone?: string;
   idempotencyKey: string;
   items: z.infer<typeof orderItemSchema>[];
 };
@@ -93,6 +95,8 @@ export async function createOrder(input: NewOrderInput) {
             qrCodeId: input.qrCodeId,
             createdById: input.createdById,
             notes: input.notes,
+            customerName: input.customerName,
+            customerPhone: input.customerPhone,
             totalFcfa: total,
             idempotencyKey: input.idempotencyKey,
             sentToKitchenAt: new Date(), // toute commande part en cuisine tout de suite

@@ -9,6 +9,7 @@ import { ApiError } from '../../lib/api';
 import { authRequest } from '../../lib/auth';
 import { fcfa, timeFr } from '../../lib/format';
 import type { CashierOrder, OrderStatus } from '../../lib/types';
+import { placeLabel } from '../../lib/orderPlace';
 
 type Filter = 'all' | 'active' | 'unpaid' | 'done' | 'cancelled';
 
@@ -227,7 +228,7 @@ function Orders({ restaurantId }: { restaurantId: string }) {
                   <div>
                     <p className="text-2xl font-semibold tracking-tight">#{o.number}</p>
                     <p className="text-sm text-stone-500">
-                      {o.tableLabel ?? (o.type === 'TAKEAWAY' ? 'À emporter' : 'Sur place')} · {timeFr(o.createdAt)}
+                      {placeLabel(o)} · {timeFr(o.createdAt)}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5">

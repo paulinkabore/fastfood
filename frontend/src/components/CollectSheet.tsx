@@ -5,6 +5,7 @@ import { fcfa, parseAmount } from '../lib/format';
 import type { CashierOrder } from '../lib/types';
 import { Sheet } from './Sheet';
 import { CheckIcon, CloseIcon } from './icons';
+import { placeLabel } from '../lib/orderPlace';
 
 const BILLS = [1000, 2000, 5000, 10000];
 
@@ -56,7 +57,7 @@ export function CollectSheet({
     <Sheet label="Encaisser" onClose={onClose}>
       <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
         <h2 className="text-lg font-semibold tracking-tight">
-          Commande #{order.number} · {order.tableLabel ?? 'À emporter'}
+          Commande #{order.number} · {placeLabel(order)}
         </h2>
         <button
           type="button"

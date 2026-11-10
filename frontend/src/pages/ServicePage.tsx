@@ -8,6 +8,7 @@ import { fcfa } from '../lib/format';
 import { beep, unlockAudio } from '../lib/sound';
 import { useService } from '../features/service/useService';
 import type { OrderStatus, OrderView } from '../lib/types';
+import { placeLabel } from '../lib/orderPlace';
 
 const STATUS: Record<OrderStatus, { label: string; style: string }> = {
   RECEIVED: { label: 'Reçue', style: 'bg-sky-50 text-sky-700' },
@@ -66,6 +67,20 @@ function OrderLine({
         </div>
       </div>
 
+      {order.type === 'DELIVERY' && (
+        <p className="mt-2 text-sm text-stone-700">
+          {order.customerName}
+          {order.customerPhone && (
+            <>
+              {' · '}
+              <a href={`tel:${order.customerPhone}`} className="font-medium text-brand-600 underline">
+                {order.customerPhone}
+              </a>
+            </>
+          )}
+        </p>
+      )}
+
       <ul className="mt-2 space-y-0.5 text-sm text-stone-700">
         {order.items.map((i, k) => (
           <li key={k}>
@@ -83,7 +98,7 @@ function OrderLine({
           onClick={onServe}
           className="mt-3 w-full rounded-2xl bg-emerald-600 px-4 py-3.5 font-semibold text-white shadow-lg shadow-emerald-600/25 transition active:scale-[0.98] disabled:opacity-60"
         >
-          {busy ? 'Mise à jour…' : order.type === 'TAKEAWAY' ? 'Remis au client' : 'Servi à la table'}
+          {busy ? 'Mise à jour…' : order.type === 'DELIVERY' ? 'Marquer livrée' : order.type === 'TAKEAWAY' ? 'Remis au client' : 'Servi à la table'}
         </button>
       )}
     </li>
@@ -116,7 +131,7 @@ function Service({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
     const visible = filter === 'ready' ? orders.filter((o) => o.status === 'READY') : orders;
     const map = new Map<string, OrderView[]>();
     for (const o of visible) {
-      const key = o.tableLabel ?? (o.type === 'TAKEAWAY' ? 'À emporter' : 'Sans table');
+      const key = placeLabel(o);
       map.set(key, [...(map.get(key) ?? []), o]);
     }
     return [...map.entries()]

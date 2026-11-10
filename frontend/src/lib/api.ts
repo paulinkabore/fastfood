@@ -34,6 +34,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export type OrderPayload = {
   idempotencyKey: string;
   notes?: string;
+  customer?: { name: string; phone: string };
   items: { productId: string; quantity: number; optionIds: string[]; notes?: string }[];
 };
 

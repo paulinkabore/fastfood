@@ -66,7 +66,7 @@ publicRouter.get(
     res.setHeader('Cache-Control', 'no-store');
     res.json({
       restaurant: { name: qr.restaurant.name, slug: qr.restaurant.slug },
-      orderType: qr.type === 'TABLE' ? 'DINE_IN' : 'TAKEAWAY',
+      orderType: qr.type === 'TABLE' ? 'DINE_IN' : qr.type === 'DELIVERY' ? 'DELIVERY' : 'TAKEAWAY',
       table: qr.table ? { label: qr.table.label } : null,
       menu: categories.filter((c) => c.products.length > 0),
     });

@@ -160,7 +160,7 @@ statsRouter.get(
 );
 
 // ================= Export CSV =================
-const TYPE_FR: Record<string, string> = { DINE_IN: 'Sur place', TAKEAWAY: 'À emporter' };
+const TYPE_FR: Record<string, string> = { DINE_IN: 'Sur place', TAKEAWAY: 'À emporter', DELIVERY: 'Livraison' };
 const STATUS_FR: Record<string, string> = {
   RECEIVED: 'Reçue',
   PREPARING: 'En préparation',

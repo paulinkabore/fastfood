@@ -12,6 +12,7 @@ import { ApiError } from '../lib/api';
 import { authRequest, useAuth } from '../lib/auth';
 import { fcfa, parseAmount, timeFr } from '../lib/format';
 import type { CashierOrder, CashSessionView, OrderStatus } from '../lib/types';
+import { placeLabel } from '../lib/orderPlace';
 
 const STATUS: Record<OrderStatus, { label: string; style: string }> = {
   RECEIVED: { label: 'Reçue', style: 'bg-sky-50 text-sky-700' },
@@ -62,7 +63,8 @@ function OrderRow({
         <div>
           <p className="text-2xl font-semibold tracking-tight">#{order.number}</p>
           <p className="text-sm text-stone-500">
-            {order.tableLabel ?? 'À emporter'} · {timeFr(order.createdAt)}
+            {placeLabel(order)}
+            {order.customerName ? ` · ${order.customerName}` : ''} · {timeFr(order.createdAt)}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1.5">

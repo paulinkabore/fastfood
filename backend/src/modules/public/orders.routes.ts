@@ -31,8 +31,19 @@ const trackingLimiter = rateLimit({
   },
 });
 
+// Livraison : le client laisse son nom et son téléphone pour que le livreur le joigne
+const customerSchema = z.object({
+  name: z.string().trim().min(2, 'Nom trop court').max(80),
+  phone: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/[\s.-]/g, ''))
+    .pipe(z.string().regex(/^\+?\d{8,15}$/, 'Numéro de téléphone invalide')),
+});
+
 const orderSchema = z.object({
   idempotencyKey: z.string().uuid(),
+  customer: customerSchema.optional(),
   items: z.array(orderItemSchema).min(1).max(40),
   notes: z.string().trim().max(300).optional(),
 });
@@ -54,6 +65,15 @@ publicOrdersRouter.post(
     });
     if (!qr) throw new AppError(404, 'NOT_FOUND', 'QR code inconnu');
 
+    const delivery = qr.type === 'DELIVERY';
+    if (delivery && !body.customer) {
+      throw new AppError(
+        400,
+        'CUSTOMER_REQUIRED',
+        'Votre nom et votre numéro de téléphone sont obligatoires pour la livraison',
+      );
+    }
+
     // Anti double envoi : même clé = même commande, renvoyée telle quelle
     const existing = await findOrderByKey(qr.restaurantId, body.idempotencyKey);
     if (existing) {
@@ -67,11 +87,13 @@ publicOrdersRouter.post(
 
     const { order, duplicate } = await createOrder({
       restaurantId: qr.restaurantId,
-      type: qr.type === 'TABLE' ? 'DINE_IN' : 'TAKEAWAY',
+      type: qr.type === 'TABLE' ? 'DINE_IN' : delivery ? 'DELIVERY' : 'TAKEAWAY',
       tableId: qr.tableId,
       qrCodeId: qr.id,
       createdById: null,
       notes: body.notes,
+      customerName: delivery ? body.customer?.name : undefined,
+      customerPhone: delivery ? body.customer?.phone : undefined,
       idempotencyKey: body.idempotencyKey,
       items: body.items,
     });

@@ -18,6 +18,8 @@ export const presentOrder = (o: OrderWithRelations) => ({
   sentToKitchenAt: o.sentToKitchenAt,
   totalFcfa: o.totalFcfa,
   notes: o.notes,
+  customerName: o.customerName,
+  customerPhone: o.customerPhone,
   createdAt: o.createdAt,
   restaurantName: o.restaurant.name,
   tableLabel: o.table?.label ?? null,

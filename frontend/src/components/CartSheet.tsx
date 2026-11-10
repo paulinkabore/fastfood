@@ -47,21 +47,33 @@ function MethodCard({
 export function CartSheet({
   token,
   cart,
+  delivery,
   onClose,
 }: {
   token: string;
   cart: Cart;
+  delivery: boolean;
   onClose: () => void;
 }) {
   const navigate = useNavigate();
   const submitting = useRef(false); // verrou immédiat contre le double clic
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [method, setMethod] = useState<Method>('CASH');
   const { mobileMoney } = usePublicConfig();
+  const [picked, setPicked] = useState<Method | null>(null);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  // En livraison, le Mobile Money est préchoisi quand il est disponible
+  const method: Method = picked ?? (delivery && mobileMoney ? 'MOBILE_MONEY' : 'CASH');
 
   const submit = async () => {
     if (submitting.current) return;
+    if (delivery) {
+      if (name.trim().length < 2) return setError('Indiquez votre nom pour la livraison.');
+      if (!/^\+?\d{8,15}$/.test(phone.replace(/[\s.-]/g, ''))) {
+        return setError('Indiquez un numéro de téléphone valide (8 chiffres minimum).');
+      }
+    }
     submitting.current = true;
     setLoading(true);
     setError(null);
@@ -69,6 +81,7 @@ export function CartSheet({
       const { order } = await api.createOrder(token, {
         idempotencyKey: cart.idempotencyKey,
         notes: cart.notes.trim() || undefined,
+        customer: delivery ? { name: name.trim(), phone: phone.trim() } : undefined,
         items: cart.lines.map((l) => ({
           productId: l.productId,
           quantity: l.quantity,
@@ -135,6 +148,34 @@ export function CartSheet({
           ))}
         </ul>
 
+        {delivery && (
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-stone-700">Vos coordonnées pour la livraison</h3>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Votre nom"
+              aria-label="Votre nom"
+              autoComplete="name"
+              maxLength={80}
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100"
+            />
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Votre téléphone (ex. 70 12 34 56)"
+              aria-label="Votre téléphone"
+              autoComplete="tel"
+              inputMode="tel"
+              maxLength={20}
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100"
+            />
+            <p className="text-xs text-stone-500">
+              Le livreur vous appellera pour convenir du prix et de l’adresse de livraison.
+            </p>
+          </div>
+        )}
+
         <div>
           <label htmlFor="order-note" className="mb-2 block text-sm font-semibold text-stone-700">
             Remarque pour la commande
@@ -155,16 +196,20 @@ export function CartSheet({
           <div className="space-y-2">
             <MethodCard
               active={method === 'CASH'}
-              title="Espèces à la caisse"
-              text="Vous réglez auprès du caissier, quand vous le souhaitez."
-              onSelect={() => setMethod('CASH')}
+              title={delivery ? 'Espèces à la livraison' : 'Espèces à la caisse'}
+              text={
+                delivery
+                  ? 'Vous réglez le livreur à la réception de votre commande.'
+                  : 'Vous réglez auprès du caissier, quand vous le souhaitez.'
+              }
+              onSelect={() => setPicked('CASH')}
             />
             {mobileMoney && (
               <MethodCard
                 active={method === 'MOBILE_MONEY'}
                 title="Mobile Money"
                 text="Vous payez maintenant sur votre téléphone, en toute sécurité."
-                onSelect={() => setMethod('MOBILE_MONEY')}
+                onSelect={() => setPicked('MOBILE_MONEY')}
               />
             )}
           </div>
@@ -190,7 +235,9 @@ export function CartSheet({
             ? 'Envoi en cours…'
             : method === 'MOBILE_MONEY'
               ? 'Commander et payer'
-              : 'Confirmer la commande'}
+              : delivery
+                ? 'Commander la livraison'
+                : 'Confirmer la commande'}
         </button>
       </div>
     </Sheet>

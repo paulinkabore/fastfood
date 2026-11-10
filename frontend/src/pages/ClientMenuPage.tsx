@@ -130,7 +130,7 @@ function ClientMenu({ token }: { token: string }) {
         <div className="mx-auto max-w-3xl">
           <h1 className="text-2xl font-semibold tracking-tight">{data.restaurant.name}</h1>
           <p className="mt-2 inline-flex items-center rounded-full bg-white px-3 py-1 text-sm font-medium text-stone-600 shadow-sm ring-1 ring-stone-200/70">
-            {data.table ? data.table.label : 'À emporter'}
+            {data.table ? data.table.label : data.orderType === 'DELIVERY' ? 'Livraison' : 'À emporter'}
           </p>
         </div>
       </header>
@@ -238,7 +238,14 @@ function ClientMenu({ token }: { token: string }) {
         />
       )}
 
-      {cartOpen && <CartSheet token={token} cart={cart} onClose={() => setCartOpen(false)} />}
+      {cartOpen && (
+        <CartSheet
+          token={token}
+          cart={cart}
+          delivery={data.orderType === 'DELIVERY'}
+          onClose={() => setCartOpen(false)}
+        />
+      )}
     </div>
   );
 }

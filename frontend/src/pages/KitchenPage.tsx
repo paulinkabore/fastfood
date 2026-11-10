@@ -7,6 +7,7 @@ import { authRequest, useAuth } from '../lib/auth';
 import { beep, unlockAudio } from '../lib/sound';
 import { useKitchen } from '../features/kitchen/useKitchen';
 import type { OrderStatus, OrderView } from '../lib/types';
+import { placeLabel } from '../lib/orderPlace';
 
 const COLUMNS: { status: OrderStatus; title: string; dot: string }[] = [
   { status: 'RECEIVED', title: 'Reçues', dot: 'bg-sky-500' },
@@ -64,7 +65,7 @@ function OrderCard({
         <div>
           <p className="text-3xl font-semibold tracking-tight">#{order.number}</p>
           <p className="mt-0.5 text-sm font-medium text-stone-500">
-            {order.tableLabel ?? 'À emporter'}
+            {placeLabel(order)}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1.5">
@@ -121,7 +122,11 @@ function OrderCard({
         </button>
       ) : (
         <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-700">
-          {order.type === 'TAKEAWAY' ? 'En attente de retrait' : 'En attente de service'}
+          {order.type === 'DELIVERY'
+            ? 'En attente du livreur'
+            : order.type === 'TAKEAWAY'
+              ? 'En attente de retrait'
+              : 'En attente de service'}
         </p>
       )}
     </article>

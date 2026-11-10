@@ -43,6 +43,11 @@ const UsersIcon = ({ className = 'h-5 w-5' }: IconProps) => (
     <path d="M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21 20v-1a4 4 0 0 0-3-3.9M16 4.2a3.5 3.5 0 0 1 0 6.6" />
   </svg>
 );
+const TruckIcon = ({ className = 'h-5 w-5' }: IconProps) => (
+  <svg {...icon} className={className}>
+    <path d="M3 7h11v9H3zM14 10h4l3 3v3h-7M7.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
+  </svg>
+);
 const FlameIcon = ({ className = 'h-5 w-5' }: IconProps) => (
   <svg {...icon} className={className}>
     <path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z" />
@@ -85,6 +90,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
     items: [
       { to: '/gestion/menu', label: 'Menu et produits', Icon: MenuBookIcon },
       { to: '/gestion/tables', label: 'Tables & QR', Icon: QrIcon },
+      { to: '/gestion/livraison', label: 'Livraison', Icon: TruckIcon },
       { to: '/gestion/stock', label: 'Stock', Icon: BoxIcon },
       { to: '/gestion/personnel', label: 'Personnel', Icon: UsersIcon },
     ],

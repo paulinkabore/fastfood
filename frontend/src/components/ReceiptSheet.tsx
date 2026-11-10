@@ -6,6 +6,7 @@ import { dateTimeFr, fcfa } from '../lib/format';
 import type { ReceiptView } from '../lib/types';
 import { Sheet } from './Sheet';
 import { CloseIcon } from './icons';
+import { placeLabel } from '../lib/orderPlace';
 
 function ReceiptBody({ r }: { r: ReceiptView }) {
   return (
@@ -17,7 +18,7 @@ function ReceiptBody({ r }: { r: ReceiptView }) {
         </p>
         <p className="text-xs text-stone-500">
           Commande #{r.orderNumber} ·{' '}
-          {r.tableLabel ?? (r.orderType === 'TAKEAWAY' ? 'À emporter' : 'Sur place')}
+          {placeLabel({ tableLabel: r.tableLabel, type: r.orderType })}
         </p>
       </div>
 

@@ -185,6 +185,23 @@ tablesRouter.post(
   }),
 );
 
+tablesRouter.post(
+  '/qr-codes/delivery',
+  ...canManage,
+  asyncHandler(async (req, res) => {
+    const qr = await createQr(rid(req), 'DELIVERY', null);
+    await audit({
+      userId: req.auth!.userId,
+      restaurantId: rid(req),
+      action: 'QR_CREATED',
+      entity: 'QrCode',
+      entityId: qr.id,
+      details: { type: 'DELIVERY' },
+    });
+    res.status(201).json({ qrCode: present(qr) });
+  }),
+);
+
 tablesRouter.get(
   '/qr-codes',
   ...canManage,
@@ -212,7 +229,7 @@ tablesRouter.get(
     ]);
 
     const printable = codes
-      .filter((c) => c.type === 'TAKEAWAY' || c.table?.isActive)
+      .filter((c) => c.type !== 'TABLE' || c.table?.isActive)
       .sort((a, b) =>
         (a.table?.label ?? '\uffff').localeCompare(b.table?.label ?? '\uffff', 'fr', {
           numeric: true,
@@ -226,7 +243,7 @@ tablesRouter.get(
       printable.map((c) => ({
         token: c.token,
         restaurantName: restaurant.name,
-        title: c.table?.label ?? 'À emporter',
+        title: c.table?.label ?? (c.type === 'DELIVERY' ? 'Livraison' : 'À emporter'),
       })),
     );
     res.setHeader('Content-Type', 'application/pdf');

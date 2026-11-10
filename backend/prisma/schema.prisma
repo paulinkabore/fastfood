@@ -23,11 +23,13 @@ enum MemberRole {
 enum QrType {
   TABLE
   TAKEAWAY
+  DELIVERY
 }
 
 enum OrderType {
   DINE_IN
   TAKEAWAY
+  DELIVERY
 }
 
 enum OrderStatus {
@@ -236,6 +238,8 @@ model Order {
   qrCodeId        String?
   createdById     String?
   notes           String?
+  customerName    String?
+  customerPhone   String?
   totalFcfa       Int
   idempotencyKey  String?
   stockDeductedAt DateTime?
