@@ -39,11 +39,13 @@ function OrderCard({
   order,
   now,
   busy,
+  readOnly,
   onAdvance,
 }: {
   order: OrderView;
   now: number;
   busy: boolean;
+  readOnly: boolean;
   onAdvance: (to: OrderStatus) => void;
 }) {
   const minutes = Math.max(0, Math.floor((now - new Date(order.createdAt).getTime()) / 60_000));
@@ -107,7 +109,7 @@ function OrderCard({
         </p>
       )}
 
-      {next ? (
+      {next && readOnly ? null : next ? (
         <button
           type="button"
           disabled={busy}
@@ -125,7 +127,7 @@ function OrderCard({
   );
 }
 
-function Kitchen({ restaurantId }: { restaurantId: string }) {
+function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: boolean }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const now = useNow(30_000);
@@ -210,6 +212,11 @@ function Kitchen({ restaurantId }: { restaurantId: string }) {
       </header>
 
       <main className="mx-auto max-w-7xl p-4">
+        {readOnly && (
+          <p className="mb-4 rounded-2xl bg-stone-100 px-4 py-3 text-sm font-medium text-stone-600">
+            Consultation seule : le gérant peut voir ces commandes mais pas les modifier.
+          </p>
+        )}
         {(error || actionError) && (
           <p className="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {actionError ?? error}
@@ -247,6 +254,7 @@ function Kitchen({ restaurantId }: { restaurantId: string }) {
                         order={o}
                         now={now}
                         busy={busyId === o.id}
+                        readOnly={readOnly}
                         onAdvance={(to) => void advance(o, to)}
                       />
                     ))}
@@ -264,7 +272,9 @@ function Kitchen({ restaurantId }: { restaurantId: string }) {
 export default function KitchenPage() {
   return (
     <RequireRole roles={['COOK', 'MANAGER']}>
-      {({ restaurantId }) => <Kitchen key={restaurantId} restaurantId={restaurantId} />}
+      {({ restaurantId, role }) => (
+        <Kitchen key={restaurantId} restaurantId={restaurantId} readOnly={role === 'MANAGER'} />
+      )}
     </RequireRole>
   );
 }

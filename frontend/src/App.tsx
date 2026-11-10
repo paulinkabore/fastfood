@@ -1,4 +1,4 @@
-import { Link, Route, Routes } from 'react-router-dom';
+import { Link, Navigate, Route, Routes } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import ClientMenuPage from './pages/ClientMenuPage';
 import OrderTrackingPage from './pages/OrderTrackingPage';
@@ -46,7 +46,8 @@ export default function App() {
       <Route path="/gestion/statistiques" element={<StatsPage />} />
       <Route path="/cuisine" element={<KitchenPage />} />
       <Route path="/caisse" element={<CashierPage />} />
-      <Route path="/service" element={<ServicePage />} />
+      <Route path="/serveur" element={<ServicePage />} />
+      <Route path="/service" element={<Navigate to="/serveur" replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

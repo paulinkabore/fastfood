@@ -17,7 +17,7 @@ const PAGES = [
 const SCREENS = [
   { to: '/cuisine', label: 'Cuisine' },
   { to: '/caisse', label: 'Caisse' },
-  { to: '/service', label: 'Service' },
+  { to: '/serveur', label: 'Serveur' },
 ];
 
 export function StaffLayout({

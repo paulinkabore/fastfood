@@ -39,17 +39,19 @@ function Stat({ label, value, strong }: { label: string; value: string; strong?:
 function OrderRow({
   order,
   hasSession,
+  readOnly,
   onCollect,
   onReceipt,
 }: {
   order: CashierOrder;
   hasSession: boolean;
+  readOnly: boolean;
   onCollect: () => void;
   onReceipt: () => void;
 }) {
   const st = STATUS[order.status];
   const pay = PAYMENT[order.paymentStatus];
-  const canPay = order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED';
+  const canPay = !readOnly && order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED';
   const hasReceipt = order.paymentStatus === 'PAID' || order.paymentStatus === 'REFUNDED';
   const summary = order.items.map((i) => `${i.quantity} × ${i.productName}`).join(', ');
 
@@ -97,7 +99,7 @@ function OrderRow({
   );
 }
 
-function Cashier({ restaurantId }: { restaurantId: string }) {
+function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: boolean }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -171,7 +173,14 @@ function Cashier({ restaurantId }: { restaurantId: string }) {
           </p>
         )}
 
+        {readOnly && (
+          <p className="rounded-2xl bg-stone-100 px-4 py-3 text-sm font-medium text-stone-600">
+            Consultation seule : le gérant peut voir les commandes et les reçus, mais pas encaisser ni gérer une caisse.
+          </p>
+        )}
+
         {/* Ma caisse */}
+        {!readOnly && (
         <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-stone-200/70">
           {session ? (
             <>
@@ -241,6 +250,7 @@ function Cashier({ restaurantId }: { restaurantId: string }) {
             </div>
           )}
         </section>
+        )}
 
         {/* Commandes */}
         <section>
@@ -270,6 +280,7 @@ function Cashier({ restaurantId }: { restaurantId: string }) {
                   key={o.id}
                   order={o}
                   hasSession={Boolean(session)}
+                  readOnly={readOnly}
                   onCollect={() => setCollecting(o)}
                   onReceipt={() => setReceiptId(o.id)}
                 />
@@ -325,7 +336,9 @@ function Cashier({ restaurantId }: { restaurantId: string }) {
 export default function CashierPage() {
   return (
     <RequireRole roles={['CASHIER', 'MANAGER']}>
-      {({ restaurantId }) => <Cashier key={restaurantId} restaurantId={restaurantId} />}
+      {({ restaurantId, role }) => (
+        <Cashier key={restaurantId} restaurantId={restaurantId} readOnly={role === 'MANAGER'} />
+      )}
     </RequireRole>
   );
 }

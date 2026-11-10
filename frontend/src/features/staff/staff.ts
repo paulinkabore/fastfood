@@ -32,7 +32,7 @@ export const ROLE_INFO: Record<AnyRole, { label: string; screen: string; text: s
   },
   WAITER: {
     label: 'Serveur',
-    screen: 'Service',
+    screen: 'Serveur',
     text: 'Voit les commandes par table et les marque servies.',
     style: 'bg-emerald-50 text-emerald-700',
   },

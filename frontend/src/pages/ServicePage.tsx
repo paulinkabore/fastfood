@@ -29,11 +29,13 @@ function OrderLine({
   order,
   now,
   busy,
+  readOnly,
   onServe,
 }: {
   order: OrderView;
   now: number;
   busy: boolean;
+  readOnly: boolean;
   onServe: () => void;
 }) {
   const st = STATUS[order.status];
@@ -73,7 +75,7 @@ function OrderLine({
       </ul>
       <p className="mt-2 text-sm font-semibold">{fcfa(order.totalFcfa)}</p>
 
-      {ready && (
+      {ready && !readOnly && (
         <button
           type="button"
           disabled={busy}
@@ -87,7 +89,7 @@ function OrderLine({
   );
 }
 
-function Service({ restaurantId }: { restaurantId: string }) {
+function Service({ restaurantId, readOnly }: { restaurantId: string; readOnly: boolean }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const now = useNow(30_000);
@@ -159,7 +161,7 @@ function Service({ restaurantId }: { restaurantId: string }) {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">
-              Service{restaurantName ? ` · ${restaurantName}` : ''}
+              Serveur{restaurantName ? ` · ${restaurantName}` : ''}
             </h1>
             <p className="flex items-center gap-2 text-xs text-stone-500">
               <span className={`h-2 w-2 rounded-full ${live ? 'bg-emerald-500' : 'animate-pulse bg-red-500'}`} />
@@ -200,6 +202,11 @@ function Service({ restaurantId }: { restaurantId: string }) {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-5 p-4">
+        {readOnly && (
+          <p className="rounded-2xl bg-stone-100 px-4 py-3 text-sm font-medium text-stone-600">
+            Consultation seule : le gérant peut voir ces commandes mais pas les modifier.
+          </p>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex gap-2">
             <button type="button" className={pill(filter === 'all')} onClick={() => setFilter('all')}>
@@ -256,6 +263,7 @@ function Service({ restaurantId }: { restaurantId: string }) {
                       order={o}
                       now={now}
                       busy={busyId === o.id}
+                      readOnly={readOnly}
                       onServe={() => void serve(o)}
                     />
                   ))}
@@ -272,7 +280,9 @@ function Service({ restaurantId }: { restaurantId: string }) {
 export default function ServicePage() {
   return (
     <RequireRole roles={['WAITER', 'MANAGER']}>
-      {({ restaurantId }) => <Service key={restaurantId} restaurantId={restaurantId} />}
+      {({ restaurantId, role }) => (
+        <Service key={restaurantId} restaurantId={restaurantId} readOnly={role === 'MANAGER'} />
+      )}
     </RequireRole>
   );
 }

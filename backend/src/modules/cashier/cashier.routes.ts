@@ -16,6 +16,8 @@ export const cashierRouter = Router({ mergeParams: true });
 const CASH_ROLES: MemberRole[] = ['CASHIER', 'MANAGER'];
 const canCash = [authenticate, requireRestaurantRole(...CASH_ROLES)];
 const canManage = [authenticate, requireRestaurantRole('MANAGER')];
+// Opérations de caisse : réservées au caissier (le gérant consulte seulement)
+const cashierOnly = [authenticate, requireRestaurantRole('CASHIER')];
 
 // Restaurant et utilisateur déjà vérifiés par les middlewares
 const rid = (req: Request) => req.membership!.restaurantId;
@@ -126,7 +128,7 @@ cashierRouter.get(
 
 cashierRouter.post(
   '/cash-sessions',
-  ...canCash,
+  ...cashierOnly,
   asyncHandler(async (req, res) => {
     const { openingFloatFcfa } = z
       .object({ openingFloatFcfa: z.number().int().min(0).max(10_000_000) })
@@ -162,7 +164,7 @@ const closeSchema = z.object({
 
 cashierRouter.post(
   '/cash-sessions/:id/close',
-  ...canCash,
+  ...cashierOnly,
   asyncHandler(async (req, res) => {
     const body = closeSchema.parse(req.body);
     const restaurantId = rid(req);
@@ -176,8 +178,8 @@ cashierRouter.post(
       if (session.status === 'CLOSED') {
         throw new AppError(409, 'SESSION_CLOSED', 'Cette caisse est déjà clôturée');
       }
-      // Un caissier ne clôture que sa propre caisse ; le gérant peut clôturer toutes les caisses
-      if (req.membership!.role !== 'MANAGER' && session.openedById !== uid(req)) {
+      // Un caissier ne clôture que sa propre caisse
+      if (session.openedById !== uid(req)) {
         throw new AppError(403, 'FORBIDDEN', 'Vous ne pouvez clôturer que votre propre caisse');
       }
 
@@ -353,7 +355,7 @@ async function collectCash(opts: {
 
 cashierRouter.post(
   '/orders/:orderId/pay/cash',
-  ...canCash,
+  ...cashierOnly,
   asyncHandler(async (req, res) => {
     const { amountReceivedFcfa } = z
       .object({ amountReceivedFcfa: z.number().int().min(0).max(100_000_000).optional() })
@@ -414,7 +416,7 @@ const counterSchema = z.object({
 
 cashierRouter.post(
   '/cashier/orders',
-  ...canCash,
+  ...cashierOnly,
   asyncHandler(async (req, res) => {
     const body = counterSchema.parse(req.body);
     const restaurantId = rid(req);

@@ -29,11 +29,6 @@ const PAYMENT = {
   REFUNDED: { label: 'Remboursée', style: 'bg-stone-100 text-stone-600' },
 } as const;
 
-const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }>> = {
-  RECEIVED: { to: 'PREPARING', label: 'Lancer la préparation' },
-  PREPARING: { to: 'READY', label: 'Marquer prête' },
-  READY: { to: 'SERVED', label: 'Marquer servie' },
-};
 
 const METHOD: Record<string, string> = { CASH: 'Espèces', MOBILE_MONEY: 'Mobile Money' };
 
@@ -71,7 +66,6 @@ function Orders({ restaurantId }: { restaurantId: string }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
@@ -106,25 +100,6 @@ function Orders({ restaurantId }: { restaurantId: string }) {
     .filter((o) => matches(o, filter))
     .filter((o) => !digits || String(o.number).includes(digits))
     .reverse(); // les plus récentes d'abord
-
-  const advance = async (o: CashierOrder) => {
-    const n = NEXT[o.status];
-    if (!n || busy) return;
-    setBusy(o.id);
-    setError(null);
-    setMessage(null);
-    try {
-      await authRequest(`${base}/orders/${o.id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: n.to }),
-      });
-      await reload();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
-    } finally {
-      setBusy(null);
-    }
-  };
 
   const submitDialog = async (reason: string) => {
     if (!dialog || busy) return;
@@ -189,9 +164,9 @@ function Orders({ restaurantId }: { restaurantId: string }) {
         <Stat label="Annulées" value={String(stats.cancelled)} />
       </section>
 
-      {(error || loadError) && (
+      {loadError && (
         <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-          {error ?? loadError}
+          {loadError}
         </p>
       )}
       {message && (
@@ -241,13 +216,10 @@ function Orders({ restaurantId }: { restaurantId: string }) {
           {shown.map((o) => {
             const st = STATUS[o.status];
             const pay = PAYMENT[o.paymentStatus];
-            const next = NEXT[o.status];
             const paid = o.payments.find((p) => p.status === 'PAID' || p.status === 'REFUNDED');
-            const canCancel = ACTIVE.includes(o.status) && o.paymentStatus !== 'PAID';
             const canRefund = o.paymentStatus === 'PAID' && paid?.method === 'CASH';
             const mobilePaid = o.paymentStatus === 'PAID' && paid?.method === 'MOBILE_MONEY';
             const hasReceipt = o.paymentStatus === 'PAID' || o.paymentStatus === 'REFUNDED';
-            const working = busy === o.id;
 
             return (
               <article key={o.id} className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-stone-200/70">
@@ -296,16 +268,6 @@ function Orders({ restaurantId }: { restaurantId: string }) {
                 )}
 
                 <div className="mt-4 flex flex-wrap gap-2 border-t border-stone-100 pt-3">
-                  {next && (
-                    <button
-                      type="button"
-                      disabled={busy !== null}
-                      onClick={() => void advance(o)}
-                      className="rounded-xl bg-stone-900 px-3.5 py-2 text-sm font-semibold text-white transition active:scale-[0.97] disabled:opacity-50"
-                    >
-                      {working ? '…' : next.label}
-                    </button>
-                  )}
                   {hasReceipt && (
                     <button
                       type="button"
@@ -313,20 +275,6 @@ function Orders({ restaurantId }: { restaurantId: string }) {
                       className="rounded-xl bg-stone-100 px-3.5 py-2 text-sm font-medium text-stone-700 transition active:scale-[0.97]"
                     >
                       Reçu
-                    </button>
-                  )}
-                  {canCancel && (
-                    <button
-                      type="button"
-                      disabled={busy !== null}
-                      onClick={() => {
-                        setDialogError(null);
-                        setDialogCode(null);
-                        setDialog({ kind: 'cancel', order: o });
-                      }}
-                      className="rounded-xl bg-red-50 px-3.5 py-2 text-sm font-medium text-red-700 transition active:scale-[0.97] disabled:opacity-50"
-                    >
-                      Annuler
                     </button>
                   )}
                   {canRefund && (

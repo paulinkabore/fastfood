@@ -28,13 +28,13 @@ const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   CANCELLED: [],
 };
 
-// Qui a le droit de passer une commande DANS ce statut
+// Qui a le droit de passer une commande DANS ce statut (le gérant consulte, il n'agit pas)
 const WHO: Record<OrderStatus, MemberRole[]> = {
   RECEIVED: [],
-  PREPARING: ['COOK', 'MANAGER'],
-  READY: ['COOK', 'MANAGER'],
-  SERVED: ['WAITER', 'CASHIER', 'MANAGER'],
-  CANCELLED: ['CASHIER', 'MANAGER'],
+  PREPARING: ['COOK'],
+  READY: ['COOK'],
+  SERVED: ['WAITER', 'CASHIER'],
+  CANCELLED: ['CASHIER'],
 };
 
 // ---------- Liste des commandes ----------

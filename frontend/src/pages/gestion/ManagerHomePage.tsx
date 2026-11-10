@@ -6,11 +6,11 @@ type Section = { title: string; text: string; to?: string };
 
 // Une section sans « to » est annoncée « Bientôt » : elle devient un lien quand l'écran est livré
 const SECTIONS: Section[] = [
-  { title: 'Commandes du jour', text: 'Suivre, annuler et rembourser les commandes.', to: '/gestion/commandes' },
+  { title: 'Commandes du jour', text: 'Suivre et rembourser les commandes.', to: '/gestion/commandes' },
   { title: 'Tables & QR codes', text: 'Créez vos tables, générez et imprimez les QR codes.', to: '/gestion/tables' },
-  { title: 'Cuisine', text: 'Les commandes en direct, de la réception à « prête ».', to: '/cuisine' },
-  { title: 'Caisse', text: 'Ouverture de caisse, encaissements, reçus, clôture.', to: '/caisse' },
-  { title: 'Service', text: 'Les commandes par table, prêtes à servir.', to: '/service' },
+  { title: 'Cuisine', text: 'Consulter les commandes en direct (lecture seule).', to: '/cuisine' },
+  { title: 'Caisse', text: 'Consulter les commandes et les reçus (lecture seule).', to: '/caisse' },
+  { title: 'Serveur', text: 'Consulter les commandes par table (lecture seule).', to: '/serveur' },
   { title: 'Menu et produits', text: 'Catégories, prix, photos, options, disponibilité.', to: '/gestion/menu' },
   { title: 'Stocks', text: 'Ingrédients, recettes, entrées, pertes, inventaire.', to: '/gestion/stock' },
   { title: 'Statistiques', text: 'Chiffre d’affaires, produits populaires, exports.', to: '/gestion/statistiques' },

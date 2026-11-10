@@ -10,7 +10,7 @@ const homeFor = (u: StaffUser) => {
   const roles = u.memberships.map((m) => m.role);
   if (roles.includes('MANAGER')) return '/gestion';
   if (roles.includes('CASHIER')) return '/caisse';
-  if (roles.includes('WAITER')) return '/service';
+  if (roles.includes('WAITER')) return '/serveur';
   return '/cuisine';
 };
 
