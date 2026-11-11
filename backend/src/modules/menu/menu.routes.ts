@@ -199,12 +199,14 @@ menuRouter.post(
     const file = req.file;
     if (!file) throw new AppError(400, 'NO_FILE', 'Aucune image envoyée (champ "image")');
     const mimeType = detectImageType(file.buffer);
+    // Copie dans un Uint8Array : le type exact attendu par Prisma pour une colonne binaire
+    const data = new Uint8Array(file.buffer);
     const product = await findProduct(String(req.params.id), rid(req));
     const [, updated] = await prisma.$transaction([
       prisma.productImage.upsert({
         where: { productId: product.id },
-        create: { productId: product.id, mimeType, data: file.buffer },
-        update: { mimeType, data: file.buffer },
+        create: { productId: product.id, mimeType, data },
+        update: { mimeType, data },
       }),
       prisma.product.update({
         where: { id: product.id },
