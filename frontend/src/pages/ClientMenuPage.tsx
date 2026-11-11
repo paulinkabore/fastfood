@@ -7,7 +7,7 @@ import { fcfa } from "../lib/format";
 import type { PublicMenu } from "../lib/types";
 import { useCart } from "../features/order/useCart";
 import { CartSheet } from "../components/CartSheet";
-import { BagIcon, PlusIcon } from "../components/icons";
+import { BagIcon, MinusIcon, PlusIcon } from "../components/icons";
 
 function Thumb({ name, url }: { name: string; url: string | null }) {
   return url ? (
@@ -202,12 +202,11 @@ function ClientMenu({ token }: { token: string }) {
                 </h2>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {c.products.map((p) => (
-                    <button
+                    <div
                       key={p.id}
-                      type="button"
-                      disabled={!p.isAvailable}
-                      onClick={() => cart.add(p, 1, [], undefined)} // un clic = ajouté au panier
-                      className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-stone-200/70 transition hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                      className={`flex w-full items-center gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-stone-200/70 ${
+                        p.isAvailable ? "" : "opacity-60"
+                      }`}
                     >
                       <Thumb name={p.name} url={p.imageUrl} />
                       <div className="min-w-0 flex-1">
@@ -221,21 +220,46 @@ function ClientMenu({ token }: { token: string }) {
                           {fcfa(p.priceFcfa)}
                         </p>
                       </div>
-                      {p.isAvailable ? (
-                        <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-500 text-white shadow-sm shadow-brand-500/30">
-                          <PlusIcon />
-                          {inCart(p.id) > 0 && (
-                            <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-stone-900 px-1 text-[11px] font-bold text-white">
-                              {inCart(p.id)}
-                            </span>
-                          )}
-                        </span>
-                      ) : (
+                      {!p.isAvailable ? (
                         <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-500">
                           Indisponible
                         </span>
+                      ) : inCart(p.id) === 0 ? (
+                        <button
+                          type="button"
+                          aria-label={`Ajouter ${p.name}`}
+                          onClick={() => cart.add(p, 1, [], undefined)}
+                          className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-500 text-white shadow-sm shadow-brand-500/30 transition active:scale-95"
+                        >
+                          <PlusIcon />
+                        </button>
+                      ) : (
+                        <div className="flex shrink-0 items-center gap-1 rounded-full bg-stone-100 p-1">
+                          <button
+                            type="button"
+                            aria-label={`Retirer un ${p.name}`}
+                            onClick={() => {
+                              const l = cart.lines.find((x) => x.productId === p.id);
+                              if (l) cart.setQuantity(l.key, l.quantity - 1);
+                            }}
+                            className="grid h-8 w-8 place-items-center rounded-full bg-white text-stone-700 shadow-sm transition active:scale-95"
+                          >
+                            <MinusIcon className="h-4 w-4" />
+                          </button>
+                          <span className="min-w-6 text-center text-sm font-bold tabular-nums">
+                            {inCart(p.id)}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={`Ajouter un ${p.name}`}
+                            onClick={() => cart.add(p, 1, [], undefined)}
+                            className="grid h-8 w-8 place-items-center rounded-full bg-brand-500 text-white shadow-sm transition active:scale-95"
+                          >
+                            <PlusIcon className="h-4 w-4" />
+                          </button>
+                        </div>
                       )}
-                    </button>
+                    </div>
                   ))}
                 </div>
               </section>
