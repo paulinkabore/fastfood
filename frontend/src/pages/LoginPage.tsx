@@ -2,17 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import type { StaffUser } from '../lib/types';
-
-// Chacun arrive sur son écran : gérant, caissier, serveur, cuisinier
-const homeFor = (u: StaffUser) => {
-  if (u.globalRole === 'SUPER_ADMIN') return '/admin';
-  const roles = u.memberships.map((m) => m.role);
-  if (roles.includes('MANAGER')) return '/gestion';
-  if (roles.includes('CASHIER')) return '/caisse';
-  if (roles.includes('WAITER')) return '/serveur';
-  return '/cuisine';
-};
+import { landingFor } from '../lib/access';
 
 export default function LoginPage() {
   const { user, ready, login } = useAuth();
@@ -25,7 +15,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  if (ready && user) return <Navigate to={from ?? homeFor(user)} replace />;
+  if (ready && user) return <Navigate to={landingFor(user, from)} replace />;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -34,7 +24,7 @@ export default function LoginPage() {
     setError(null);
     try {
       const u = await login(email.trim(), password);
-      navigate(from ?? homeFor(u), { replace: true });
+      navigate(landingFor(u, from), { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erreur inattendue, réessayez.');
     } finally {
