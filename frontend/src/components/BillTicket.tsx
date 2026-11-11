@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import { TicketWatermark } from './TicketWatermark';
 import { fcfa } from '../lib/format';
 import { BRAND_NAME, showRestaurantName } from '../lib/brand';
 import { placeLabel } from '../lib/orderPlace';
@@ -8,7 +9,7 @@ import type { CashierOrder } from '../lib/types';
 export function BillTicket({ order }: { order: CashierOrder }) {
   return createPortal(
     <div className="print-receipt" style={{ fontFamily: 'monospace', fontSize: '13px' }}>
-      <img src="/logo.png" alt="" style={{ display: 'block', margin: '0 auto 4px', height: '16mm', width: 'auto', filter: 'grayscale(1) contrast(1.4)' }} />
+      <TicketWatermark />
       <p style={{ textAlign: 'center', fontWeight: 700, fontSize: '14px' }}>{BRAND_NAME}</p>
       {showRestaurantName(order.restaurantName) && <p style={{ textAlign: 'center' }}>{order.restaurantName}</p>}
       <p style={{ textAlign: 'center' }}>TICKET DE CAISSE</p>

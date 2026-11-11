@@ -51,6 +51,13 @@ body {
     box-sizing: border-box;
     padding: 4mm;
     margin: 0;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+  .print-receipt {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   body {
     background: white;

@@ -6,6 +6,7 @@ import { RequireRole } from '../components/RequireRole';
 import { StaffLayout } from '../components/StaffLayout';
 import { ApiError } from '../lib/api';
 import { authRequest, useAuth } from '../lib/auth';
+import { TicketWatermark } from '../components/TicketWatermark';
 import { printTicket } from '../lib/print';
 import { BRAND_NAME, showRestaurantName } from '../lib/brand';
 import { beep, readyAnnouncement, speak, speechAvailable, unlockAudio } from '../lib/sound';
@@ -286,7 +287,7 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
       {ticket &&
         createPortal(
           <div className="print-receipt" style={{ fontFamily: 'monospace', fontSize: '14px' }}>
-            <img src="/logo.png" alt="" style={{ display: 'block', margin: '0 auto 4px', height: '16mm', width: 'auto', filter: 'grayscale(1) contrast(1.4)' }} />
+            <TicketWatermark />
             <p style={{ textAlign: 'center', fontWeight: 700 }}>{BRAND_NAME}</p>
             {showRestaurantName(ticket.restaurantName) && <p style={{ textAlign: 'center' }}>{ticket.restaurantName}</p>}
             <p style={{ textAlign: 'center', fontSize: '28px', fontWeight: 700 }}>#{ticket.number}</p>

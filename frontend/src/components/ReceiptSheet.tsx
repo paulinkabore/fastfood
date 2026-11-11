@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api, ApiError } from '../lib/api';
+import { TicketWatermark } from './TicketWatermark';
 import { printTicket } from '../lib/print';
 import { BRAND_NAME, showRestaurantName } from '../lib/brand';
 import { authRequest } from '../lib/auth';
@@ -12,9 +13,9 @@ import { placeLabel } from '../lib/orderPlace';
 
 function ReceiptBody({ r }: { r: ReceiptView }) {
   return (
-    <div className="mx-auto w-full max-w-[80mm] text-sm text-stone-900">
+    <div className="relative isolate mx-auto w-full max-w-[80mm] overflow-hidden text-sm text-stone-900">
       <div className="text-center">
-        <img src="/logo.png" alt="" className="mx-auto mb-1 h-16 w-auto" style={{ filter: 'grayscale(1) contrast(1.4)' }} />
+        <TicketWatermark />
         <p className="text-base font-semibold">{BRAND_NAME}</p>
         {showRestaurantName(r.restaurantName) && <p className="text-sm">{r.restaurantName}</p>}
         <p className="mt-1 text-xs text-stone-500">
