@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api, ApiError } from '../lib/api';
+import { printTicket } from '../lib/print';
 import { authRequest } from '../lib/auth';
 import { dateTimeFr, fcfa } from '../lib/format';
 import type { ReceiptView } from '../lib/types';
@@ -120,7 +121,7 @@ export function ReceiptSheet({
           <button
             type="button"
             disabled={!receipt}
-            onClick={() => window.print()}
+            onClick={printTicket}
             className="w-full rounded-2xl bg-stone-900 px-5 py-4 font-semibold text-white shadow-lg shadow-stone-900/20 transition active:scale-[0.98] disabled:opacity-50"
           >
             {buttonLabel}

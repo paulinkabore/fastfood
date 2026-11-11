@@ -6,7 +6,7 @@ import type { CashierOrder } from '../lib/types';
 // Ticket de caisse « à payer » : le serveur le prend avec la commande pour le remettre au client
 export function BillTicket({ order }: { order: CashierOrder }) {
   return createPortal(
-    <div className="print-receipt" style={{ fontFamily: 'monospace', fontSize: '13px', width: '72mm' }}>
+    <div className="print-receipt" style={{ fontFamily: 'monospace', fontSize: '13px' }}>
       <p style={{ textAlign: 'center', fontWeight: 700, fontSize: '16px' }}>{order.restaurantName}</p>
       <p style={{ textAlign: 'center' }}>TICKET DE CAISSE</p>
       <p style={{ textAlign: 'center', fontSize: '26px', fontWeight: 700 }}>#{order.number}</p>

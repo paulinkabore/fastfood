@@ -35,13 +35,22 @@ body {
   display: none;
 }
 
+/* Tickets : papier de 80 mm (la hauteur exacte est fixée au moment d'imprimer, voir lib/print.ts) */
+@page {
+  size: 80mm 297mm;
+  margin: 0;
+}
+
 @media print {
   #root {
     display: none !important;
   }
   .print-receipt {
     display: block !important;
+    width: 80mm;
+    box-sizing: border-box;
     padding: 4mm;
+    margin: 0;
   }
   body {
     background: white;

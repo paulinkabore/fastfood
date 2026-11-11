@@ -6,6 +6,7 @@ import { RequireRole } from '../components/RequireRole';
 import { StaffLayout } from '../components/StaffLayout';
 import { ApiError } from '../lib/api';
 import { authRequest, useAuth } from '../lib/auth';
+import { printTicket } from '../lib/print';
 import { beep, readyAnnouncement, speak, speechAvailable, unlockAudio } from '../lib/sound';
 import { useKitchen } from '../features/kitchen/useKitchen';
 import type { OrderStatus, OrderView } from '../lib/types';
@@ -176,7 +177,7 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
     if (!ticket) return;
     const done = () => setTicket(null);
     window.addEventListener('afterprint', done);
-    const t = window.setTimeout(() => window.print(), 100);
+    const t = window.setTimeout(printTicket, 100);
     return () => {
       window.clearTimeout(t);
       window.removeEventListener('afterprint', done);
@@ -283,7 +284,7 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
 
       {ticket &&
         createPortal(
-          <div className="print-receipt" style={{ fontFamily: 'monospace', fontSize: '14px', width: '72mm' }}>
+          <div className="print-receipt" style={{ fontFamily: 'monospace', fontSize: '14px' }}>
             <p style={{ textAlign: 'center', fontWeight: 700 }}>{ticket.restaurantName}</p>
             <p style={{ textAlign: 'center', fontSize: '28px', fontWeight: 700 }}>#{ticket.number}</p>
             <p style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700 }}>{placeLabel(ticket)}</p>

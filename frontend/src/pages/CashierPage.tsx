@@ -10,6 +10,7 @@ import { BillTicket } from '../components/BillTicket';
 import { MobileMoneySheet } from '../components/MobileMoneySheet';
 import { ReceiptSheet } from '../components/ReceiptSheet';
 import { awaitingValidation } from '../lib/mobileMoney';
+import { printTicket } from '../lib/print';
 import { beep, unlockAudio } from '../lib/sound';
 import { PlusIcon } from '../components/icons';
 import { useCashier, type CashierScope } from '../features/cashier/useCashier';
@@ -217,7 +218,7 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
     if (!ticket) return;
     const done = () => setTicket(null);
     window.addEventListener('afterprint', done);
-    const t = window.setTimeout(() => window.print(), 150);
+    const t = window.setTimeout(printTicket, 150);
     return () => {
       window.clearTimeout(t);
       window.removeEventListener('afterprint', done);
