@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ApiError } from '../lib/api';
-import { authRequest, setAccessToken } from '../lib/auth';
+import { authRequest, setAccessToken, useAuth } from '../lib/auth';
+import { minPasswordFor } from '../lib/passwordPolicy';
 import { Sheet } from './Sheet';
 import { CloseIcon } from './icons';
 
@@ -8,6 +9,8 @@ const field =
   'w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100';
 
 function ChangePasswordSheet({ onClose }: { onClose: () => void }) {
+  const { user } = useAuth();
+  const min = minPasswordFor(user);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [again, setAgain] = useState('');
@@ -17,7 +20,7 @@ function ChangePasswordSheet({ onClose }: { onClose: () => void }) {
 
   const save = async () => {
     if (busy) return;
-    if (next.length < 10) return setError('Le nouveau mot de passe doit faire 10 caractères au moins');
+    if (next.length < min) return setError(`Le nouveau mot de passe doit faire ${min} caractères au moins`);
     if (next !== again) return setError('Les deux nouveaux mots de passe ne sont pas identiques');
     setBusy(true);
     setError(null);
@@ -68,7 +71,7 @@ function ChangePasswordSheet({ onClose }: { onClose: () => void }) {
               type="password"
               value={next}
               onChange={(e) => setNext(e.target.value)}
-              placeholder="Nouveau mot de passe (10 caractères minimum)"
+              placeholder={`Nouveau mot de passe (${min} caractères minimum)`}
               aria-label="Nouveau mot de passe"
               autoComplete="new-password"
               maxLength={72}

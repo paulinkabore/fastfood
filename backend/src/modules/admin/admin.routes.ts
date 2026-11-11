@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { MIN_PASSWORD_MANAGER } from '../../lib/passwordPolicy';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../lib/errors';
 import { asyncHandler } from '../../lib/asyncHandler';
@@ -19,7 +20,8 @@ async function getRestaurant(id: string) {
   return restaurant;
 }
 
-const password = z.string().min(10).max(72);
+// Comptes gérants : mot de passe plus long
+const password = z.string().min(MIN_PASSWORD_MANAGER, `Le mot de passe doit faire ${MIN_PASSWORD_MANAGER} caractères au moins`).max(72);
 
 // ---------- Restaurants ----------
 const restaurantSchema = z.object({

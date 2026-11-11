@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ApiError } from '../../lib/api';
 import { authRequest } from '../../lib/auth';
 import { generatePassword } from '../../features/admin/admin';
+import { MIN_PASSWORD_STAFF } from '../../lib/passwordPolicy';
 import { ASSIGNABLE, ROLE_INFO, type StaffRole } from '../../features/staff/staff';
 import { Sheet } from '../Sheet';
 import { CheckIcon, CloseIcon } from '../icons';
@@ -31,8 +32,8 @@ export function StaffSheet({
     const mail = email.trim().toLowerCase();
     if (fullName.trim().length < 2) return setError('Le nom doit contenir au moins 2 caractères');
     if (!/^\S+@\S+\.\S+$/.test(mail)) return setError('Adresse email invalide');
-    if (password.length < 10 || password.length > 72) {
-      return setError('Le mot de passe doit contenir entre 10 et 72 caractères');
+    if (password.length < MIN_PASSWORD_STAFF || password.length > 72) {
+      return setError(`Le mot de passe doit contenir entre ${MIN_PASSWORD_STAFF} et 72 caractères`);
     }
 
     setBusy(true);
@@ -122,7 +123,7 @@ export function StaffSheet({
             onChange={(e) => setPassword(e.target.value)}
             type={showPw ? 'text' : 'password'}
             autoComplete="new-password"
-            placeholder="Mot de passe (10 caractères minimum)"
+            placeholder="Mot de passe (6 caractères minimum)"
             aria-label="Mot de passe"
             className={`${field} min-w-48 flex-1 ${showPw ? 'font-mono' : ''}`}
           />

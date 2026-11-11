@@ -10,6 +10,7 @@ import { env } from '../../config/env';
 import { signAccessToken, newRefreshToken, hashToken } from '../../lib/tokens';
 import { authenticate } from '../../middleware/auth';
 import { audit } from '../../lib/audit';
+import { MIN_PASSWORD_MANAGER, MIN_PASSWORD_STAFF } from '../../lib/passwordPolicy';
 
 export const authRouter = Router();
 
@@ -200,7 +201,7 @@ authRouter.get(
 const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1),
-    newPassword: z.string().min(10, 'Le nouveau mot de passe doit faire 10 caractères au moins').max(72),
+    newPassword: z.string().min(MIN_PASSWORD_STAFF).max(72),
   })
   .refine((v) => v.newPassword !== v.currentPassword, {
     message: 'Le nouveau mot de passe doit être différent de l’ancien',
@@ -212,7 +213,15 @@ authRouter.post(
   authenticate,
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
-    const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: req.auth!.userId },
+      include: { memberships: { select: { role: true } } },
+    });
+    // Gérant et super-administrateur : 10 caractères ; le reste du personnel : 6
+    const isManager = user?.globalRole === 'SUPER_ADMIN' || user?.memberships.some((m) => m.role === 'MANAGER');
+    if (isManager && newPassword.length < MIN_PASSWORD_MANAGER) {
+      throw new AppError(400, 'WEAK_PASSWORD', `Le mot de passe doit faire ${MIN_PASSWORD_MANAGER} caractères au moins`);
+    }
     if (!user || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
       throw new AppError(400, 'WRONG_PASSWORD', 'Le mot de passe actuel est incorrect');
     }

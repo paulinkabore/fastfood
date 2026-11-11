@@ -1,6 +1,7 @@
 import { Router, type Request } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { MIN_PASSWORD_STAFF } from '../../lib/passwordPolicy';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../lib/errors';
 import { asyncHandler } from '../../lib/asyncHandler';
@@ -16,7 +17,8 @@ const uid = (req: Request) => req.auth!.userId;
 
 // Le gérant crée et gère le personnel ; les comptes gérants dépendent de l'administration
 const ROLES = ['CASHIER', 'COOK', 'WAITER'] as const;
-const password = z.string().min(10).max(72);
+// Les comptes créés ici sont ceux du personnel (cuisinier, caissier, serveur)
+const password = z.string().min(MIN_PASSWORD_STAFF, `Le mot de passe doit faire ${MIN_PASSWORD_STAFF} caractères au moins`).max(72);
 
 // ---------- Liste de l'équipe ----------
 staffRouter.get(

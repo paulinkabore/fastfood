@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ApiError } from '../../lib/api';
 import { authRequest } from '../../lib/auth';
 import { generatePassword } from '../../features/admin/admin';
+import { MIN_PASSWORD_STAFF } from '../../lib/passwordPolicy';
 import { ASSIGNABLE, ROLE_INFO, type StaffMember, type StaffRole } from '../../features/staff/staff';
 import { Sheet } from '../Sheet';
 import { CloseIcon } from '../icons';
@@ -58,8 +59,8 @@ export function StaffEditSheet({
   };
 
   const resetPassword = async () => {
-    if (password.length < 10 || password.length > 72) {
-      return setError('Le mot de passe doit contenir entre 10 et 72 caractères');
+    if (password.length < MIN_PASSWORD_STAFF || password.length > 72) {
+      return setError(`Le mot de passe doit contenir entre ${MIN_PASSWORD_STAFF} et 72 caractères`);
     }
     const ok = await patch('password', { password }, `Mot de passe de « ${member.fullName} » réinitialisé`, false);
     if (ok) {
@@ -166,7 +167,7 @@ export function StaffEditSheet({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
-              placeholder="10 caractères minimum"
+              placeholder="6 caractères minimum"
               aria-label="Nouveau mot de passe"
               className={`${field} min-w-44 flex-1 font-mono`}
             />
