@@ -60,7 +60,7 @@ staffRouter.post(
       throw new AppError(409, 'EMAIL_TAKEN', 'Cet email est déjà utilisé');
     }
 
-    const passwordHash = await bcrypt.hash(data.password, 12);
+    const passwordHash = await bcrypt.hash(data.password, 10);
     const user = await prisma.user.create({
       data: {
         email: data.email,
@@ -129,7 +129,7 @@ staffRouter.patch(
           where: { id: userId },
           data: {
             ...(data.fullName !== undefined ? { fullName: data.fullName } : {}),
-            ...(data.password !== undefined ? { passwordHash: await bcrypt.hash(data.password, 12) } : {}),
+            ...(data.password !== undefined ? { passwordHash: await bcrypt.hash(data.password, 10) } : {}),
           },
         });
       }

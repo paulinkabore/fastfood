@@ -30,7 +30,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(
       res.status,
       data?.error?.code ?? 'ERROR',
-      data?.error?.message ?? 'Une erreur est survenue',
+      data?.error?.message ?? `Une erreur est survenue (code ${res.status})`,
     );
   }
   return data as T;
