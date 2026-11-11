@@ -205,10 +205,23 @@ model Product {
   options    ProductOption[]
   orderItems OrderItem[]
   recipes    Recipe[]
+  image      ProductImage?
 
   @@unique([restaurantId, name])
   @@index([restaurantId, categoryId])
   @@map("products")
+}
+
+// Photo du produit, gardée dans la base : l'hébergement n'a pas de disque durable
+model ProductImage {
+  productId String   @id
+  mimeType  String
+  data      Bytes
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
 }
 
 model ProductOption {

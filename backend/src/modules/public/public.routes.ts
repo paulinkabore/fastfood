@@ -6,6 +6,20 @@ import { asyncHandler } from '../../lib/asyncHandler';
 
 export const publicRouter = Router();
 
+// Photos des produits : avant la limite de requêtes (un menu en charge plusieurs d'un coup)
+// et mises en cache longtemps (le « ?v= » de l'adresse change à chaque nouvelle photo)
+publicRouter.get(
+  '/product-images/:id',
+  asyncHandler(async (req, res) => {
+    const image = await prisma.productImage.findUnique({ where: { productId: String(req.params.id) } });
+    if (!image) throw new AppError(404, 'NOT_FOUND', 'Image introuvable');
+    res.setHeader('Content-Type', image.mimeType);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(Buffer.from(image.data));
+  }),
+);
+
 publicRouter.use(
   rateLimit({
     windowMs: 60_000,

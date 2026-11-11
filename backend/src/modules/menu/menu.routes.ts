@@ -1,5 +1,4 @@
 import { Router, type Request } from 'express';
-import fs from 'fs';
 import { z } from 'zod';
 import type { MemberRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
@@ -7,7 +6,7 @@ import { AppError } from '../../lib/errors';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { audit } from '../../lib/audit';
 import { authenticate, requireRestaurantRole } from '../../middleware/auth';
-import { uploadImage, publicImageUrl, assertImageContent, removeImage } from '../../lib/upload';
+import { uploadImage, productImageUrl, detectImageType } from '../../lib/upload';
 
 // mergeParams : récupère :restaurantId défini dans app.ts
 export const menuRouter = Router({ mergeParams: true });
@@ -199,19 +198,20 @@ menuRouter.post(
   asyncHandler(async (req, res) => {
     const file = req.file;
     if (!file) throw new AppError(400, 'NO_FILE', 'Aucune image envoyée (champ "image")');
-    try {
-      await assertImageContent(file.path);
-      const product = await findProduct(String(req.params.id), rid(req));
-      const updated = await prisma.product.update({
+    const mimeType = detectImageType(file.buffer);
+    const product = await findProduct(String(req.params.id), rid(req));
+    const [, updated] = await prisma.$transaction([
+      prisma.productImage.upsert({
+        where: { productId: product.id },
+        create: { productId: product.id, mimeType, data: file.buffer },
+        update: { mimeType, data: file.buffer },
+      }),
+      prisma.product.update({
         where: { id: product.id },
-        data: { imageUrl: publicImageUrl(rid(req), file.filename) },
-      });
-      removeImage(product.imageUrl); // supprime l'ancienne photo
-      res.json({ product: updated });
-    } catch (err) {
-      await fs.promises.unlink(file.path).catch(() => {}); // pas de fichier orphelin
-      throw err;
-    }
+        data: { imageUrl: productImageUrl(product.id) },
+      }),
+    ]);
+    res.json({ product: updated });
   }),
 );
 
@@ -233,7 +233,6 @@ menuRouter.delete(
       prisma.productOption.deleteMany({ where: { productId: product.id } }),
       prisma.product.delete({ where: { id: product.id } }),
     ]);
-    removeImage(product.imageUrl);
     await audit({
       userId: req.auth!.userId,
       restaurantId: rid(req),
