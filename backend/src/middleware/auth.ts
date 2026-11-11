@@ -35,11 +35,15 @@ export const requireRestaurantRole =
       const restaurantId = String(req.params.restaurantId);
       const membership = await prisma.restaurantMembership.findUnique({
         where: { userId_restaurantId: { userId: req.auth!.userId, restaurantId } },
-        include: { restaurant: { select: { isActive: true } } },
+        include: {
+          restaurant: { select: { isActive: true } },
+          user: { select: { isActive: true } },
+        },
       });
       if (
         !membership ||
         !membership.isActive ||
+        !membership.user.isActive ||
         !membership.restaurant.isActive ||
         !roles.includes(membership.role)
       ) {

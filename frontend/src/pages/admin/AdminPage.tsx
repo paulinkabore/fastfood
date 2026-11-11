@@ -57,7 +57,7 @@ function Admin() {
     }
   };
 
-  const remove = async (r: AdminRestaurant) => {
+  const remove = async (r: AdminRestaurant, password: string) => {
     if (busy) return;
     setBusy(true);
     setError(null);
@@ -65,7 +65,7 @@ function Admin() {
     try {
       await authRequest(`/admin/restaurants/${r.id}`, {
         method: 'DELETE',
-        body: JSON.stringify({ confirmName: r.name }),
+        body: JSON.stringify({ confirmName: r.name, password }),
       });
       setDeleting(null);
       await load();
@@ -255,7 +255,8 @@ function Admin() {
           danger
           busy={busy}
           requireText={deleting.name}
-          onConfirm={() => void remove(deleting)}
+          requirePassword
+          onConfirm={(password) => void remove(deleting, password)}
           onClose={() => setDeleting(null)}
         />
       )}

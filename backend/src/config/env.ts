@@ -21,7 +21,8 @@ const schema = z
     MOBILE_MONEY_MERCHANT_CODE: z.string().regex(/^\d{6,15}$/).default('74639266'),
     MOBILE_MONEY_MERCHANT_NAME: z.string().default('RESTAURANT NJ_DISTRICT'),
     // Nombre de proxys devant le serveur (1 chez la plupart des hébergeurs, 0 en local)
-    TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
+    // Vercel place un proxy devant le serveur : sans cela, tous les clients auraient la même adresse IP
+    TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(process.env.VERCEL ? 1 : 0),
     // true : le serveur sert aussi les écrans construits du frontend
     SERVE_FRONTEND: z
       .enum(['true', 'false'])

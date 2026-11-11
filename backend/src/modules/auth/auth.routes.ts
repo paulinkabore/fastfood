@@ -1,5 +1,6 @@
 import { Router, type Response } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
@@ -8,10 +9,13 @@ import { asyncHandler } from '../../lib/asyncHandler';
 import { env } from '../../config/env';
 import { signAccessToken, newRefreshToken, hashToken } from '../../lib/tokens';
 import { authenticate } from '../../middleware/auth';
+import { audit } from '../../lib/audit';
 
 export const authRouter = Router();
 
 const REFRESH_DAYS = 7;
+// Empreinte factice (mot de passe aléatoire) pour égaliser le temps de réponse
+const DUMMY_HASH = bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), 10);
 const MAX_FAILED_LOGINS = 5;
 const LOCK_MINUTES = 15;
 const COOKIE_NAME = 'refresh_token';
@@ -77,11 +81,22 @@ authRouter.post(
       );
     }
 
-    const valid = user && user.isActive && (await bcrypt.compare(password, user.passwordHash));
+    // Même durée de calcul que le compte existe ou non : impossible de deviner les emails valides
+    const valid =
+      (await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH)) && Boolean(user?.isActive);
     if (!user || !valid) {
       if (user) {
         const failed = user.failedLogins + 1;
         const lock = failed >= MAX_FAILED_LOGINS;
+        if (lock) {
+          await audit({
+            userId: user.id,
+            action: 'ACCOUNT_LOCKED',
+            entity: 'User',
+            entityId: user.id,
+            details: { minutes: LOCK_MINUTES, ip: req.ip ?? null },
+          });
+        }
         await prisma.user.update({
           where: { id: user.id },
           data: {

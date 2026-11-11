@@ -202,7 +202,14 @@ adminRouter.delete(
   asyncHandler(async (req, res) => {
     const id = String(req.params.id);
     const restaurant = await getRestaurant(id);
-    const { confirmName } = z.object({ confirmName: z.string() }).parse(req.body ?? {});
+    const { confirmName, password: adminPassword } = z
+      .object({ confirmName: z.string(), password: z.string().min(1) })
+      .parse(req.body ?? {});
+    // Action irréversible : le mot de passe est redemandé même si la session est ouverte
+    const me = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+    if (!me || !(await bcrypt.compare(adminPassword, me.passwordHash))) {
+      throw new AppError(403, 'WRONG_PASSWORD', 'Mot de passe incorrect');
+    }
     if (confirmName.trim() !== restaurant.name) {
       throw new AppError(400, 'CONFIRMATION_MISMATCH', 'Le nom saisi ne correspond pas au restaurant');
     }

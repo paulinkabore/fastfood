@@ -56,6 +56,49 @@ const orderSchema = z.object({
   notes: z.string().trim().max(300).optional(),
 });
 
+// Les limites en mémoire ne se partagent pas entre les serveurs de l'hébergeur : celles-ci se
+// calculent dans la base, donc un robot ne peut pas inonder la cuisine ou la caisse
+async function assertNotFlooded(
+  qr: { id: string; restaurantId: string },
+  customerPhone?: string,
+  payerPhone?: string,
+) {
+  const since = new Date(Date.now() - 10 * 60 * 1000);
+  const tooMany = (message: string) => new AppError(429, 'TOO_MANY_PENDING', message);
+
+  // Commandes de ce QR code encore non payées et pas commencées
+  const waiting = await prisma.order.count({
+    where: { qrCodeId: qr.id, status: 'RECEIVED', paymentStatus: 'PENDING', createdAt: { gte: since } },
+  });
+  if (waiting >= 25) throw tooMany('Trop de commandes en attente pour ce QR code, réessayez dans quelques minutes');
+
+  if (customerPhone) {
+    const same = await prisma.order.count({
+      where: { restaurantId: qr.restaurantId, customerPhone, createdAt: { gte: since } },
+    });
+    if (same >= 5) throw tooMany('Trop de commandes avec ce numéro, réessayez dans quelques minutes');
+  }
+
+  if (payerPhone) {
+    const pending = await prisma.payment.count({
+      where: {
+        restaurantId: qr.restaurantId,
+        provider: 'manual',
+        status: 'PENDING',
+        payerPhone,
+        createdAt: { gte: since },
+      },
+    });
+    if (pending >= 3) throw tooMany('Ce numéro a déjà des paiements en attente de validation');
+
+    // Pile de paiements Mobile Money non validés sur tout le restaurant
+    const stack = await prisma.payment.count({
+      where: { restaurantId: qr.restaurantId, provider: 'manual', status: 'PENDING', createdAt: { gte: since } },
+    });
+    if (stack >= 40) throw tooMany('Trop de paiements en attente de validation, réessayez dans quelques minutes');
+  }
+}
+
 // ---------- Créer une commande ----------
 publicOrdersRouter.post(
   '/qr/:token/orders',
@@ -92,6 +135,8 @@ publicOrdersRouter.post(
     if (!qr.isActive || !qr.restaurant.isActive || (qr.table && !qr.table.isActive)) {
       throw new AppError(410, 'QR_INACTIVE', "Ce QR code n'est plus actif");
     }
+
+    await assertNotFlooded(qr, delivery ? body.customer?.phone : undefined, body.payment?.payerPhone);
 
     const { order, duplicate } = await createOrder({
       restaurantId: qr.restaurantId,
