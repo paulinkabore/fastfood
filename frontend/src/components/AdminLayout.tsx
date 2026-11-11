@@ -1,3 +1,4 @@
+import { ChangePasswordButton } from './ChangePassword';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
@@ -16,6 +17,7 @@ export function AdminLayout({ title, children }: { title: string; children: Reac
           </div>
           <div className="flex items-center gap-3">
             {user && <span className="hidden text-sm text-stone-500 sm:inline">{user.fullName}</span>}
+            <ChangePasswordButton className="rounded-full bg-stone-100 px-4 py-2 text-sm font-medium text-stone-600" />
             <button
               type="button"
               onClick={async () => {

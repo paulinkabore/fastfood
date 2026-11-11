@@ -1,3 +1,4 @@
+import { ChangePasswordButton } from './ChangePassword';
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { authRequest, useAuth } from '../lib/auth';
@@ -227,6 +228,7 @@ export function StaffLayout({
           {user && (
             <p className="mb-2 truncate px-3 text-sm text-stone-500">{user.fullName}</p>
           )}
+          <ChangePasswordButton className="mb-2 w-full rounded-xl px-3 py-3 text-sm font-medium text-stone-600 transition hover:bg-stone-100 lg:py-2.5" />
           <button
             type="button"
             onClick={async () => {

@@ -41,6 +41,9 @@ async function call<T>(path: string, init: RequestInit = {}, token?: string | nu
 }
 
 export const getAccessToken = () => accessToken;
+export const setAccessToken = (token: string) => {
+  accessToken = token;
+};
 
 // Un seul renouvellement à la fois : les appels simultanés partagent le même résultat
 export function refreshSession(): Promise<string | null> {

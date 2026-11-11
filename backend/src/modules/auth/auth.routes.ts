@@ -12,6 +12,8 @@ import { authenticate } from '../../middleware/auth';
 export const authRouter = Router();
 
 const REFRESH_DAYS = 7;
+const MAX_FAILED_LOGINS = 5;
+const LOCK_MINUTES = 15;
 const COOKIE_NAME = 'refresh_token';
 const cookieOptions = {
   httpOnly: true,
@@ -65,9 +67,33 @@ authRouter.post(
       },
     });
 
+    // Compte bloqué après trop d'échecs : même un bon mot de passe est refusé jusqu'à la fin du délai
+    if (user?.lockedUntil && user.lockedUntil > new Date()) {
+      const minutes = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60_000);
+      throw new AppError(
+        429,
+        'ACCOUNT_LOCKED',
+        `Trop d'échecs de connexion. Compte bloqué encore ${minutes} minute${minutes > 1 ? 's' : ''}.`,
+      );
+    }
+
     const valid = user && user.isActive && (await bcrypt.compare(password, user.passwordHash));
     if (!user || !valid) {
+      if (user) {
+        const failed = user.failedLogins + 1;
+        const lock = failed >= MAX_FAILED_LOGINS;
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            failedLogins: lock ? 0 : failed,
+            lockedUntil: lock ? new Date(Date.now() + LOCK_MINUTES * 60_000) : null,
+          },
+        });
+      }
       throw new AppError(401, 'INVALID_CREDENTIALS', 'Email ou mot de passe incorrect');
+    }
+    if (user.failedLogins > 0 || user.lockedUntil) {
+      await prisma.user.update({ where: { id: user.id }, data: { failedLogins: 0, lockedUntil: null } });
     }
 
     const accessToken = await issueSession(user.id, user.globalRole, res);
@@ -152,5 +178,39 @@ authRouter.get(
       },
     });
     res.json({ user });
+  }),
+);
+
+// ---------- Changement de mot de passe par l'employé ----------
+const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(10, 'Le nouveau mot de passe doit faire 10 caractères au moins').max(72),
+  })
+  .refine((v) => v.newPassword !== v.currentPassword, {
+    message: 'Le nouveau mot de passe doit être différent de l’ancien',
+    path: ['newPassword'],
+  });
+
+authRouter.post(
+  '/change-password',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+    if (!user || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
+      throw new AppError(400, 'WRONG_PASSWORD', 'Le mot de passe actuel est incorrect');
+    }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: await bcrypt.hash(newPassword, 10) },
+    });
+    // Toutes les autres sessions sont fermées ; celle-ci continue avec un nouveau jeton
+    await prisma.refreshToken.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    const accessToken = await issueSession(user.id, user.globalRole, res);
+    res.json({ accessToken });
   }),
 );

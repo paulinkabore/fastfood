@@ -1,3 +1,4 @@
+import { ChangePasswordButton } from '../components/ChangePassword';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RequireRole } from '../components/RequireRole';
@@ -238,6 +239,7 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
                 {voiceOn ? 'Annonce vocale activée' : 'Annonce vocale'}
               </button>
             )}
+            <ChangePasswordButton className="rounded-full bg-stone-100 px-4 py-2 text-sm font-medium text-stone-600" />
             <button
               type="button"
               onClick={async () => {
