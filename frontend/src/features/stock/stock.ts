@@ -2,6 +2,8 @@ export type Ingredient = {
   id: string;
   name: string;
   unit: string;
+  categoryId: string | null;
+  categoryName: string | null;
   isActive: boolean;
   quantity: number;
   alertThreshold: number;

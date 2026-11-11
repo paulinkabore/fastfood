@@ -34,10 +34,12 @@ const positiveQty = qty.refine((v) => v > 0, { message: 'La quantité doit être
 const nonEmpty = (v: object) => Object.keys(v).length > 0;
 
 // ---------- Présentation ----------
-const presentIngredient = (i: Ingredient) => ({
+const presentIngredient = (i: Ingredient & { category?: { name: string } | null }) => ({
   id: i.id,
   name: i.name,
   unit: i.unit,
+  categoryId: i.categoryId,
+  categoryName: i.category?.name ?? null,
   isActive: i.isActive,
   quantity: Number(i.quantity),
   alertThreshold: Number(i.alertThreshold),
@@ -49,6 +51,13 @@ async function findIngredient(id: string, restaurantId: string) {
   const ingredient = await prisma.ingredient.findFirst({ where: { id, restaurantId } });
   if (!ingredient) throw new AppError(404, 'NOT_FOUND', 'Ingrédient introuvable');
   return ingredient;
+}
+
+// La catégorie doit appartenir à CE restaurant
+async function findCategory(id: string, restaurantId: string) {
+  const category = await prisma.category.findFirst({ where: { id, restaurantId } });
+  if (!category) throw new AppError(400, 'CATEGORY_NOT_FOUND', 'Catégorie introuvable');
+  return category;
 }
 
 async function findProduct(id: string, restaurantId: string) {
@@ -72,6 +81,7 @@ stockRouter.get(
     const rows = await prisma.ingredient.findMany({
       where: { restaurantId: rid(req), ...(q.archived === 'true' ? {} : { isActive: true }) },
       orderBy: { name: 'asc' },
+      include: { category: { select: { name: true } } },
     });
     let list = rows.map(presentIngredient);
     if (q.lowOnly === 'true') list = list.filter((i) => i.isLow);
@@ -85,7 +95,8 @@ stockRouter.get(
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(80),
-  unit: z.string().trim().min(1).max(20),
+  unit: z.string().trim().min(1).max(20).default('unité'),
+  categoryId: z.string().uuid(),
   quantity: qty.default(0),
   alertThreshold: qty.default(0),
 });
@@ -96,6 +107,7 @@ stockRouter.post(
   asyncHandler(async (req, res) => {
     const body = createSchema.parse(req.body);
     const restaurantId = rid(req);
+    await findCategory(body.categoryId, restaurantId);
 
     const created = await prisma.$transaction(async (tx) => {
       const ingredient = await tx.ingredient.create({
@@ -103,6 +115,7 @@ stockRouter.post(
           restaurantId,
           name: body.name,
           unit: body.unit,
+          categoryId: body.categoryId,
           quantity: D(body.quantity),
           alertThreshold: D(body.alertThreshold),
         },
@@ -129,6 +142,7 @@ const updateSchema = z
   .object({
     name: z.string().trim().min(1).max(80),
     unit: z.string().trim().min(1).max(20),
+    categoryId: z.string().uuid(),
     alertThreshold: qty,
     isActive: z.boolean(),
   })
@@ -153,6 +167,7 @@ stockRouter.patch(
       }
     }
 
+    if (body.categoryId) await findCategory(body.categoryId, rid(req));
     const { alertThreshold, ...rest } = body;
     const updated = await prisma.ingredient.update({
       where: { id: ingredient.id },

@@ -179,7 +179,8 @@ model Category {
   createdAt    DateTime @default(now())
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id])
-  products   Product[]
+  products    Product[]
+  ingredients Ingredient[]
 
   @@unique([restaurantId, name])
   @@index([restaurantId])
@@ -361,12 +362,14 @@ model Ingredient {
   restaurantId   String
   name           String
   unit           String
+  categoryId     String?
   quantity       Decimal  @default(0) @db.Decimal(12, 3)
   alertThreshold Decimal  @default(0) @db.Decimal(12, 3)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   restaurant     Restaurant      @relation(fields: [restaurantId], references: [id])
+  category       Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   recipes        Recipe[]
   stockMovements StockMovement[]
 

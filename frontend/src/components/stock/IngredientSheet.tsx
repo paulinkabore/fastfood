@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ApiError } from '../../lib/api';
 import { authRequest } from '../../lib/auth';
-import { UNITS, parseDecimal, validQty, type Ingredient } from '../../features/stock/stock';
+import { parseDecimal, validQty, type Ingredient } from '../../features/stock/stock';
+import type { CategoryRow } from '../../features/menu/menu';
 import { Sheet } from '../Sheet';
 import { CloseIcon } from '../icons';
 
@@ -21,7 +22,8 @@ export function IngredientSheet({
 }) {
   const base = `/restaurants/${restaurantId}`;
   const [name, setName] = useState(ingredient?.name ?? '');
-  const [unit, setUnit] = useState(ingredient?.unit ?? 'kg');
+  const [categoryId, setCategoryId] = useState(ingredient?.categoryId ?? '');
+  const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [initial, setInitial] = useState('');
   const [threshold, setThreshold] = useState(
     ingredient ? String(ingredient.alertThreshold).replace('.', ',') : '',
@@ -30,12 +32,18 @@ export function IngredientSheet({
   const [error, setError] = useState<string | null>(null);
   const [askArchive, setAskArchive] = useState(false);
 
+  useEffect(() => {
+    authRequest<{ categories: CategoryRow[] }>(`${base}/categories`)
+      .then((d) => setCategories(d.categories))
+      .catch(() => setError('Impossible de charger les catégories'));
+  }, [base]);
+
   const save = async () => {
     if (busy) return;
     const t = threshold.trim() ? parseDecimal(threshold) : 0;
     const q = initial.trim() ? parseDecimal(initial) : 0;
     if (!name.trim()) return setError('Le nom est obligatoire');
-    if (!unit.trim()) return setError('L’unité est obligatoire');
+    if (!categoryId) return setError('Choisissez une catégorie');
     if (!validQty(t, true)) return setError('Seuil invalide : nombre positif, 3 décimales au maximum');
     if (!ingredient && !validQty(q, true)) {
       return setError('Quantité invalide : nombre positif, 3 décimales au maximum');
@@ -47,14 +55,14 @@ export function IngredientSheet({
       if (ingredient) {
         await authRequest(`${base}/ingredients/${ingredient.id}`, {
           method: 'PATCH',
-          body: JSON.stringify({ name: name.trim(), unit: unit.trim(), alertThreshold: t }),
+          body: JSON.stringify({ name: name.trim(), categoryId, alertThreshold: t }),
         });
       } else {
         await authRequest(`${base}/ingredients`, {
           method: 'POST',
           body: JSON.stringify({
             name: name.trim(),
-            unit: unit.trim(),
+            categoryId,
             quantity: q,
             alertThreshold: t,
           }),
@@ -117,26 +125,37 @@ export function IngredientSheet({
           />
         </div>
 
+        <div>
+          <label htmlFor="i-cat" className="mb-1.5 block text-sm font-semibold text-stone-700">
+            Catégorie
+          </label>
+          <select id="i-cat" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={field}>
+            <option value="">Choisir une catégorie…</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="i-unit" className="mb-1.5 block text-sm font-semibold text-stone-700">
-              Unité
-            </label>
-            <input
-              id="i-unit"
-              list="stock-units"
-              value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-              maxLength={20}
-              className={field}
-            />
-            <datalist id="stock-units">
-              {UNITS.map((u) => (
-                <option key={u} value={u} />
-              ))}
-            </datalist>
-          </div>
-          <div>
+          {!ingredient && (
+            <div>
+              <label htmlFor="i-qty" className="mb-1.5 block text-sm font-semibold text-stone-700">
+                Quantité
+              </label>
+              <input
+                id="i-qty"
+                value={initial}
+                onChange={(e) => setInitial(e.target.value)}
+                inputMode="decimal"
+                placeholder="0"
+                className={field}
+              />
+            </div>
+          )}
+          <div className={ingredient ? 'col-span-2' : undefined}>
             <label htmlFor="i-thr" className="mb-1.5 block text-sm font-semibold text-stone-700">
               Seuil d’alerte
             </label>
@@ -151,21 +170,7 @@ export function IngredientSheet({
           </div>
         </div>
 
-        {!ingredient ? (
-          <div>
-            <label htmlFor="i-qty" className="mb-1.5 block text-sm font-semibold text-stone-700">
-              Quantité en stock aujourd’hui
-            </label>
-            <input
-              id="i-qty"
-              value={initial}
-              onChange={(e) => setInitial(e.target.value)}
-              inputMode="decimal"
-              placeholder="0"
-              className={field}
-            />
-          </div>
-        ) : (
+        {ingredient && (
           <p className="rounded-2xl bg-stone-50 px-4 py-3 text-sm text-stone-500">
             Pour changer la quantité, utilisez <span className="font-medium">Entrée</span>,{' '}
             <span className="font-medium">Perte</span> ou l’onglet <span className="font-medium">Inventaire</span> :
