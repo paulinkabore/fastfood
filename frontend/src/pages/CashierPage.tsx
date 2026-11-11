@@ -6,6 +6,7 @@ import { StaffLayout } from '../components/StaffLayout';
 import { CloseSessionSheet } from '../components/CloseSessionSheet';
 import { CollectSheet } from '../components/CollectSheet';
 import { CounterOrderSheet } from '../components/CounterOrderSheet';
+import { BillTicket } from '../components/BillTicket';
 import { MobileMoneySheet } from '../components/MobileMoneySheet';
 import { ReceiptSheet } from '../components/ReceiptSheet';
 import { awaitingValidation } from '../lib/mobileMoney';
@@ -42,12 +43,17 @@ function Stat({ label, value, strong }: { label: string; value: string; strong?:
   );
 }
 
+// Commande finie en cuisine, payée en espèces mais pas encore encaissée : son ticket « à payer » s'imprime
+const billable = (o: CashierOrder) =>
+  o.status === 'READY' && o.paymentStatus === 'PENDING' && !awaitingValidation(o);
+
 function OrderRow({
   order,
   hasSession,
   readOnly,
   onCollect,
   onVerify,
+  onPrint,
   onReceipt,
 }: {
   order: CashierOrder;
@@ -55,6 +61,7 @@ function OrderRow({
   readOnly: boolean;
   onCollect: () => void;
   onVerify: () => void;
+  onPrint: () => void;
   onReceipt: () => void;
 }) {
   const st = STATUS[order.status];
@@ -90,6 +97,15 @@ function OrderRow({
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <p className="text-lg font-semibold">{fcfa(order.totalFcfa)}</p>
+        {!readOnly && billable(order) && (
+          <button
+            type="button"
+            onClick={onPrint}
+            className="rounded-2xl bg-stone-100 px-4 py-2.5 font-medium text-stone-700 transition active:scale-[0.97]"
+          >
+            Imprimer le ticket
+          </button>
+        )}
         {toVerify && !readOnly && (
           <button
             type="button"
@@ -146,6 +162,68 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
     if (fresh.length > 0 && soundOn) beep();
   }, [orders, loading, soundOn]);
 
+  // Impression automatique du ticket de caisse quand la cuisine termine une commande en espèces
+  const printedKey = `printed:${restaurantId}`;
+  const [autoPrint, setAutoPrint] = useState(() => {
+    try {
+      return localStorage.getItem('print:cashier') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const [ticket, setTicket] = useState<CashierOrder | null>(null);
+  const printed = useRef<Set<string> | null>(null);
+  const loadPrinted = () => {
+    if (printed.current) return printed.current;
+    try {
+      const raw = localStorage.getItem(printedKey);
+      printed.current = new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+      if (raw === null) printed.current.add('__init__'); // premier lancement : l'existant n'est pas imprimé
+    } catch {
+      printed.current = new Set<string>(['__init__']);
+    }
+    return printed.current;
+  };
+  const markPrinted = (id: string) => {
+    const set = loadPrinted();
+    set.add(id);
+    try {
+      localStorage.setItem(printedKey, JSON.stringify([...set].slice(-300)));
+    } catch {
+      /* ignoré */
+    }
+  };
+
+  useEffect(() => {
+    if (loading || readOnly || ticket) return;
+    const set = loadPrinted();
+    const ready = orders.filter(billable);
+    if (set.has('__init__')) {
+      set.delete('__init__');
+      ready.forEach((o) => markPrinted(o.id));
+      markPrinted('init');
+      return;
+    }
+    if (!autoPrint) return;
+    const next = ready.find((o) => !set.has(o.id));
+    if (next) {
+      markPrinted(next.id);
+      setTicket(next); // les suivantes passent une par une
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, loading, autoPrint, ticket, readOnly]);
+
+  useEffect(() => {
+    if (!ticket) return;
+    const done = () => setTicket(null);
+    window.addEventListener('afterprint', done);
+    const t = window.setTimeout(() => window.print(), 150);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('afterprint', done);
+    };
+  }, [ticket]);
+
   const [collecting, setCollecting] = useState<CashierOrder | null>(null);
   const [verifying, setVerifying] = useState<CashierOrder | null>(null);
   const [closing, setClosing] = useState<CashSessionView | null>(null);
@@ -196,6 +274,23 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
             </p>
           </div>
           <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const next = !autoPrint;
+              setAutoPrint(next);
+              try {
+                localStorage.setItem('print:cashier', next ? '1' : '0');
+              } catch {
+                /* ignoré */
+              }
+            }}
+            className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+              autoPrint ? 'bg-brand-500 text-white shadow-md shadow-brand-500/30' : 'bg-stone-100 text-stone-600'
+            }`}
+          >
+            {autoPrint ? 'Ticket auto activé' : 'Ticket auto'}
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -346,6 +441,7 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
                   readOnly={readOnly}
                   onCollect={() => setCollecting(o)}
                   onVerify={() => setVerifying(o)}
+                  onPrint={() => setTicket(o)}
                   onReceipt={() => setReceiptId(o.id)}
                 />
               ))}
@@ -363,6 +459,8 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
           onReceipt={(id) => setReceiptId(id)}
         />
       )}
+
+      {ticket && <BillTicket order={ticket} />}
 
       {verifying && (
         <MobileMoneySheet
