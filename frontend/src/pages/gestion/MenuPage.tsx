@@ -382,6 +382,11 @@ function Menu({ restaurantId }: { restaurantId: string }) {
           defaultCategoryId={selected !== 'all' ? selected : (categories[0]?.id ?? '')}
           onClose={() => setEditProduct(null)}
           onChanged={() => void load()}
+          onSaved={(m) => {
+            setError(null);
+            setMessage(m);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
         />
       )}
 

@@ -2,167 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '../../lib/api';
 import { authRequest } from '../../lib/auth';
 import { fcfa } from '../../lib/format';
-import type { CategoryRow, OptionRow, ProductRow } from '../../features/menu/menu';
+import type { CategoryRow, ProductRow } from '../../features/menu/menu';
 import { Sheet } from '../Sheet';
 import { CloseIcon } from '../icons';
 
 const MAX_IMAGE = 2 * 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-const parseAllergens = (s: string) =>
-  [...new Set(s.split(',').map((x) => x.trim()).filter(Boolean))].slice(0, 20);
-
 const field =
   'w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100';
-
-// ---------- Options (suppléments) d'un produit ----------
-function OptionsSection({
-  restaurantId,
-  productId,
-  initial,
-  onChanged,
-}: {
-  restaurantId: string;
-  productId: string;
-  initial: OptionRow[];
-  onChanged: () => void;
-}) {
-  const base = `/restaurants/${restaurantId}`;
-  const [items, setItems] = useState<OptionRow[]>(initial);
-  const [name, setName] = useState('');
-  const [delta, setDelta] = useState('');
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const run = async (key: string, fn: () => Promise<void>) => {
-    if (busy) return;
-    setBusy(key);
-    setError(null);
-    try {
-      await fn();
-      onChanged();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const add = () =>
-    run('add', async () => {
-      const value = delta.trim() ? Number(delta.replace(/\s/g, '')) : 0;
-      if (!name.trim()) throw new ApiError(400, 'VALIDATION_ERROR', 'Le nom de l’option est obligatoire');
-      if (!Number.isInteger(value) || value < 0) {
-        throw new ApiError(400, 'VALIDATION_ERROR', 'Le supplément doit être un nombre entier de FCFA');
-      }
-      const r = await authRequest<{ option: OptionRow }>(`${base}/products/${productId}/options`, {
-        method: 'POST',
-        body: JSON.stringify({ name: name.trim(), priceDeltaFcfa: value }),
-      });
-      setItems((l) => [...l, r.option]);
-      setName('');
-      setDelta('');
-    });
-
-  const toggle = (o: OptionRow) =>
-    run(`t:${o.id}`, async () => {
-      const r = await authRequest<{ option: OptionRow }>(`${base}/options/${o.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isActive: !o.isActive }),
-      });
-      setItems((l) => l.map((x) => (x.id === o.id ? r.option : x)));
-    });
-
-  const remove = (o: OptionRow) =>
-    run(`d:${o.id}`, async () => {
-      await authRequest(`${base}/options/${o.id}`, { method: 'DELETE' });
-      setItems((l) => l.filter((x) => x.id !== o.id));
-    });
-
-  const enter = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      void add();
-    }
-  };
-
-  return (
-    <div className="space-y-3 rounded-3xl bg-stone-50 p-4">
-      <div>
-        <h3 className="text-sm font-semibold text-stone-700">Options (suppléments)</h3>
-        <p className="text-xs text-stone-400">Exemple : « Fromage en plus », + 300 FCFA.</p>
-      </div>
-
-      {items.length === 0 ? (
-        <p className="text-sm text-stone-400">Aucune option pour ce produit.</p>
-      ) : (
-        <ul className="divide-y divide-stone-200/70">
-          {items.map((o) => (
-            <li key={o.id} className="flex items-center justify-between gap-3 py-2.5">
-              <div className={`min-w-0 ${o.isActive ? '' : 'opacity-50'}`}>
-                <p className="truncate text-sm font-medium">{o.name}</p>
-                <p className="text-xs text-stone-500">
-                  {o.priceDeltaFcfa > 0 ? `+ ${fcfa(o.priceDeltaFcfa)}` : 'Offert'}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-1.5">
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => void toggle(o)}
-                  className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-stone-600 ring-1 ring-stone-200 disabled:opacity-50"
-                >
-                  {o.isActive ? 'Masquer' : 'Afficher'}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => void remove(o)}
-                  className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 disabled:opacity-50"
-                >
-                  Supprimer
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="flex flex-wrap gap-2">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={enter}
-          placeholder="Nom de l’option"
-          aria-label="Nom de l’option"
-          maxLength={60}
-          className={`${field} min-w-40 flex-1 py-2.5`}
-        />
-        <input
-          value={delta}
-          onChange={(e) => setDelta(e.target.value.replace(/[^\d\s]/g, ''))}
-          onKeyDown={enter}
-          placeholder="+ FCFA"
-          aria-label="Supplément en FCFA"
-          inputMode="numeric"
-          className={`${field} w-28 py-2.5`}
-        />
-        <button
-          type="button"
-          disabled={busy !== null || !name.trim()}
-          onClick={() => void add()}
-          className="rounded-2xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white transition active:scale-[0.97] disabled:opacity-50"
-        >
-          {busy === 'add' ? '…' : 'Ajouter'}
-        </button>
-      </div>
-
-      {error && (
-        <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>
-      )}
-    </div>
-  );
-}
 
 // ---------- Fiche produit ----------
 export function ProductEditor({
@@ -172,6 +20,7 @@ export function ProductEditor({
   defaultCategoryId,
   onClose,
   onChanged,
+  onSaved,
 }: {
   restaurantId: string;
   product: ProductRow | null;
@@ -179,24 +28,21 @@ export function ProductEditor({
   defaultCategoryId: string;
   onClose: () => void;
   onChanged: () => void;
+  onSaved: (message: string) => void;
 }) {
   const base = `/restaurants/${restaurantId}`;
   const lock = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  // « current » devient le produit dès sa création : les options et la photo se débloquent
+  // « current » devient le produit dès sa création
   const [current, setCurrent] = useState<ProductRow | null>(product);
   const [name, setName] = useState(product?.name ?? '');
-  const [description, setDescription] = useState(product?.description ?? '');
   const [price, setPrice] = useState(product ? String(product.priceFcfa) : '');
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? defaultCategoryId);
-  const [allergens, setAllergens] = useState((product?.allergens ?? []).join(', '));
-  const [available, setAvailable] = useState(product?.isAvailable ?? true);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!file) {
@@ -234,15 +80,11 @@ export function ProductEditor({
     lock.current = true;
     setSaving(true);
     setError(null);
-    setMessage(null);
     try {
       const body = JSON.stringify({
         categoryId,
         name: name.trim(),
-        description: description.trim(),
         priceFcfa: priceNumber,
-        allergens: parseAllergens(allergens),
-        isAvailable: available,
       });
 
       let saved: ProductRow;
@@ -273,11 +115,9 @@ export function ProductEditor({
         setFile(null);
         onChanged();
       }
-      setMessage(
-        product || current
-          ? 'Modifications enregistrées'
-          : 'Produit créé. Vous pouvez maintenant ajouter des options.',
-      );
+      // Succès : la boîte se ferme et la page affiche la notification
+      onSaved(product ? `« ${saved.name} » modifié` : `« ${saved.name} » ajouté au menu`);
+      onClose();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
     } finally {
@@ -289,10 +129,10 @@ export function ProductEditor({
   const shownImage = preview ?? current?.imageUrl ?? null;
 
   return (
-    <Sheet label={current ? 'Modifier le produit' : 'Nouveau produit'} onClose={onClose}>
+    <Sheet label={product ? 'Modifier le produit' : 'Nouveau produit'} onClose={onClose}>
       <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
         <h2 className="text-lg font-semibold tracking-tight">
-          {current ? 'Modifier le produit' : 'Nouveau produit'}
+          {product ? 'Modifier le produit' : 'Nouveau produit'}
         </h2>
         <button
           type="button"
@@ -305,11 +145,6 @@ export function ProductEditor({
       </div>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-        {message && (
-          <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-            {message}
-          </p>
-        )}
         {error && (
           <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>
         )}
@@ -363,43 +198,6 @@ export function ProductEditor({
         </div>
 
         <div>
-          <label htmlFor="p-desc" className="mb-1.5 block text-sm font-semibold text-stone-700">
-            Description
-          </label>
-          <textarea
-            id="p-desc"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            maxLength={500}
-            rows={3}
-            className={`${field} resize-none`}
-          />
-        </div>
-
-        <div>
-          <label htmlFor="p-all" className="mb-1.5 block text-sm font-semibold text-stone-700">
-            Allergènes
-          </label>
-          <input
-            id="p-all"
-            value={allergens}
-            onChange={(e) => setAllergens(e.target.value)}
-            placeholder="gluten, arachide, lait (séparés par des virgules)"
-            className={field}
-          />
-        </div>
-
-        <label className="flex items-center gap-3 rounded-2xl bg-stone-50 px-4 py-3">
-          <input
-            type="checkbox"
-            checked={available}
-            onChange={(e) => setAvailable(e.target.checked)}
-            className="h-5 w-5 accent-orange-500"
-          />
-          <span className="text-sm font-medium text-stone-700">Disponible à la commande</span>
-        </label>
-
-        <div>
           <p className="mb-1.5 text-sm font-semibold text-stone-700">Photo</p>
           <div className="flex items-center gap-4">
             {shownImage ? (
@@ -433,20 +231,6 @@ export function ProductEditor({
             </div>
           </div>
         </div>
-
-        {current ? (
-          <OptionsSection
-            key={current.id}
-            restaurantId={restaurantId}
-            productId={current.id}
-            initial={current.options}
-            onChanged={onChanged}
-          />
-        ) : (
-          <p className="rounded-2xl border border-dashed border-stone-300 px-4 py-3 text-sm text-stone-400">
-            Enregistrez le produit pour pouvoir ajouter des options.
-          </p>
-        )}
       </div>
 
       <div className="border-t border-stone-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
@@ -456,7 +240,7 @@ export function ProductEditor({
           disabled={saving}
           className="w-full rounded-2xl bg-brand-500 px-5 py-4 font-semibold text-white shadow-lg shadow-brand-500/30 transition hover:bg-brand-600 active:scale-[0.98] disabled:opacity-60"
         >
-          {saving ? 'Enregistrement…' : current ? 'Enregistrer les modifications' : 'Créer le produit'}
+          {saving ? 'Enregistrement…' : product ? 'Enregistrer' : 'Ajouter au menu'}
         </button>
       </div>
     </Sheet>
