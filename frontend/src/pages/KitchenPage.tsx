@@ -1,4 +1,5 @@
 import { ChangePasswordButton } from '../components/ChangePassword';
+import { Sheet } from '../components/Sheet';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -54,7 +55,7 @@ function OrderCard({
   now: number;
   busy: boolean;
   readOnly: boolean;
-  onAdvance: (to: OrderStatus) => void;
+  onAdvance: (to: OrderStatus, customerName?: string) => void;
   onTicket: () => void;
 }) {
   const minutes = Math.max(0, Math.floor((now - new Date(order.createdAt).getTime()) / 60_000));
@@ -65,6 +66,8 @@ function OrderCard({
         ? 'bg-amber-50 text-amber-700'
         : 'bg-stone-100 text-stone-600';
   const next = NEXT[order.status];
+  const [askName, setAskName] = useState(false);
+  const [name, setName] = useState(order.customerName ?? '');
 
   return (
     <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200/70">
@@ -132,7 +135,9 @@ function OrderCard({
         <button
           type="button"
           disabled={busy}
-          onClick={() => onAdvance(next.to)}
+          onClick={() =>
+            next.to === 'READY' && order.type === 'TAKEAWAY' ? setAskName(true) : onAdvance(next.to)
+          }
           className={`mt-4 w-full rounded-2xl px-4 py-3.5 font-semibold shadow-lg transition active:scale-[0.98] disabled:opacity-60 ${next.style}`}
         >
           {busy ? 'Mise à jour…' : next.label}
@@ -145,6 +150,42 @@ function OrderCard({
               ? 'En attente de retrait'
               : 'En attente de service'}
         </p>
+      )}
+      {askName && (
+        <Sheet label="Nom du client" onClose={() => setAskName(false)}>
+          <form
+            className="space-y-4 px-5 pb-6 pt-6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (name.trim().length < 2) return;
+              setAskName(false);
+              onAdvance('READY', name.trim());
+            }}
+          >
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">Commande à emporter #{order.number}</h2>
+              <p className="mt-1 text-sm text-stone-500">
+                Quel est le nom du client ? Il sera appelé au haut-parleur.
+              </p>
+            </div>
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={40}
+              placeholder="Ex : Awa"
+              aria-label="Nom du client"
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-lg outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100"
+            />
+            <button
+              type="submit"
+              disabled={name.trim().length < 2}
+              className="w-full rounded-2xl bg-emerald-600 px-4 py-3.5 font-semibold text-white shadow-lg transition active:scale-[0.98] disabled:opacity-50"
+            >
+              Commande prête
+            </button>
+          </form>
+        </Sheet>
       )}
     </article>
   );
@@ -189,14 +230,14 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const advance = async (order: OrderView, to: OrderStatus) => {
+  const advance = async (order: OrderView, to: OrderStatus, customerName?: string) => {
     if (busyId) return;
     setBusyId(order.id);
     setActionError(null);
     try {
       const data = await authRequest<{ order: OrderView }>(
         `/restaurants/${restaurantId}/orders/${order.id}/status`,
-        { method: 'PATCH', body: JSON.stringify({ status: to }) },
+        { method: 'PATCH', body: JSON.stringify({ status: to, customerName }) },
       );
       apply(data.order);
       if (to === 'READY' && voiceOn) speak(readyAnnouncement(data.order));
@@ -359,7 +400,7 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
                         now={now}
                         busy={busyId === o.id}
                         readOnly={readOnly}
-                        onAdvance={(to) => void advance(o, to)}
+                        onAdvance={(to, name) => void advance(o, to, name)}
                         onTicket={() => setTicket(o)}
                       />
                     ))}

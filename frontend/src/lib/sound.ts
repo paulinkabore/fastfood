@@ -48,7 +48,12 @@ export function speak(text: string, times = 2) {
   }
 }
 
-type Announced = { number: number; type: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY'; tableLabel: string | null };
+type Announced = {
+  number: number;
+  type: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
+  tableLabel: string | null;
+  customerName?: string | null;
+};
 
 // Phrase dite à voix haute : « La commande de la table 5 est prête »
 // (le mot « Table » du libellé n'est pas répété)
@@ -56,6 +61,9 @@ export function readyAnnouncement(o: Announced): string {
   if (o.tableLabel) {
     const table = o.tableLabel.replace(/^table\s*/i, '').trim() || o.tableLabel;
     return `La commande de la table ${table} est prête`;
+  }
+  if (o.type === 'TAKEAWAY' && o.customerName) {
+    return `La commande de ${o.customerName} est prête`;
   }
   const mode = o.type === 'DELIVERY' ? 'de livraison' : 'à emporter';
   return `La commande ${mode} numéro ${o.number} est prête`;

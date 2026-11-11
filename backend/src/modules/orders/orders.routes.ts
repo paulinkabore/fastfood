@@ -71,13 +71,15 @@ ordersRouter.get(
 const statusSchema = z.object({
   status: z.enum(['PREPARING', 'READY', 'SERVED', 'CANCELLED']),
   reason: z.string().trim().min(3).max(200).optional(),
+  // Commande à emporter : nom du client, appelé au haut-parleur quand elle est prête
+  customerName: z.string().trim().min(2).max(40).optional(),
 });
 
 ordersRouter.patch(
   '/orders/:id/status',
   ...canAccess,
   asyncHandler(async (req, res) => {
-    const { status, reason } = statusSchema.parse(req.body);
+    const { status, reason, customerName } = statusSchema.parse(req.body);
     const restaurantId = rid(req);
 
     // La commande est cherchée dans CE restaurant uniquement
@@ -127,7 +129,11 @@ ordersRouter.patch(
       // Mise à jour conditionnelle : si quelqu'un d'autre a changé le statut entre-temps, on refuse
       const result = await tx.order.updateMany({
         where: { id: order.id, restaurantId, status: order.status },
-        data: { status, ...(status === 'CANCELLED' ? { cancelledReason: reason } : {}) },
+        data: {
+          status,
+          ...(status === 'CANCELLED' ? { cancelledReason: reason } : {}),
+          ...(status === 'READY' && order.type === 'TAKEAWAY' && customerName ? { customerName } : {}),
+        },
       });
       if (result.count === 0) {
         throw new AppError(409, 'ORDER_CHANGED', 'Cette commande vient d’être modifiée par quelqu’un d’autre');
