@@ -31,11 +31,18 @@ export function useKitchen(restaurantId: string, onNewOrder: () => void) {
     onNewRef.current = onNewOrder;
   });
 
+  const firstLoad = useRef(true);
   const load = useCallback(async () => {
     try {
       const data = await authRequest<{ orders: OrderView[] }>(
         `/restaurants/${restaurantId}/orders?scope=kitchen`,
       );
+      // Sans temps réel (hébergement en ligne), c'est l'actualisation qui repère les nouvelles commandes
+      if (!firstLoad.current && !REALTIME) {
+        const known = new Set(ordersRef.current.map((o) => o.id));
+        if (data.orders.some((o) => !known.has(o.id) && inKitchen(o))) onNewRef.current();
+      }
+      firstLoad.current = false;
       setOrders(data.orders);
       setError(null);
     } catch (e) {

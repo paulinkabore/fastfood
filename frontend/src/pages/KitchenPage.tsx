@@ -4,7 +4,7 @@ import { RequireRole } from '../components/RequireRole';
 import { StaffLayout } from '../components/StaffLayout';
 import { ApiError } from '../lib/api';
 import { authRequest, useAuth } from '../lib/auth';
-import { beep, unlockAudio } from '../lib/sound';
+import { beep, readyAnnouncement, speak, speechAvailable, unlockAudio } from '../lib/sound';
 import { useKitchen } from '../features/kitchen/useKitchen';
 import type { OrderStatus, OrderView } from '../lib/types';
 import { placeLabel } from '../lib/orderPlace';
@@ -139,6 +139,14 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
   const now = useNow(30_000);
 
   const [soundOn, setSoundOn] = useState(false);
+  // Annonce vocale (haut-parleurs) quand une commande est marquée prête
+  const [voiceOn, setVoiceOn] = useState(() => {
+    try {
+      return localStorage.getItem('voice:kitchen') === '1';
+    } catch {
+      return false;
+    }
+  });
   const soundRef = useRef(false);
   useEffect(() => {
     soundRef.current = soundOn;
@@ -161,6 +169,7 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
         { method: 'PATCH', body: JSON.stringify({ status: to }) },
       );
       apply(data.order);
+      if (to === 'READY' && voiceOn) speak(readyAnnouncement(data.order.number, placeLabel(data.order)));
     } catch (e) {
       setActionError(e instanceof ApiError ? e.message : 'Erreur inattendue');
       if (e instanceof ApiError && e.code === 'ORDER_CHANGED') void reload();
@@ -204,6 +213,31 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
             >
               {soundOn ? 'Son activé' : 'Activer le son'}
             </button>
+            {speechAvailable() && (
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !voiceOn;
+                  setVoiceOn(next);
+                  try {
+                    localStorage.setItem('voice:kitchen', next ? '1' : '0');
+                  } catch {
+                    /* ignoré */
+                  }
+                  if (next) {
+                    unlockAudio();
+                    speak('Annonce vocale activée.', 1);
+                  }
+                }}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                  voiceOn
+                    ? 'bg-brand-500 text-white shadow-md shadow-brand-500/30'
+                    : 'bg-stone-100 text-stone-600'
+                }`}
+              >
+                {voiceOn ? 'Annonce vocale activée' : 'Annonce vocale'}
+              </button>
+            )}
             <button
               type="button"
               onClick={async () => {

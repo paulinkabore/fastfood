@@ -48,6 +48,11 @@ const TruckIcon = ({ className = 'h-5 w-5' }: IconProps) => (
     <path d="M3 7h11v9H3zM14 10h4l3 3v3h-7M7.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
   </svg>
 );
+const SpeakerIcon = ({ className = 'h-5 w-5' }: IconProps) => (
+  <svg {...icon} className={className}>
+    <path d="M4 9v6h4l5 4V5L8 9H4zM16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11" />
+  </svg>
+);
 const FlameIcon = ({ className = 'h-5 w-5' }: IconProps) => (
   <svg {...icon} className={className}>
     <path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z" />
@@ -101,6 +106,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
       { to: '/cuisine', label: 'Cuisine', Icon: FlameIcon },
       { to: '/caisse', label: 'Caisse', Icon: WalletIcon },
       { to: '/serveur', label: 'Serveur', Icon: BellIcon },
+      { to: '/annonces', label: 'Annonces vocales', Icon: SpeakerIcon },
     ],
   },
 ];

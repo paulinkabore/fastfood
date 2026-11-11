@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RequireRole } from '../components/RequireRole';
 import { StaffLayout } from '../components/StaffLayout';
@@ -8,6 +8,7 @@ import { CounterOrderSheet } from '../components/CounterOrderSheet';
 import { MobileMoneySheet } from '../components/MobileMoneySheet';
 import { ReceiptSheet } from '../components/ReceiptSheet';
 import { awaitingValidation } from '../lib/mobileMoney';
+import { beep, unlockAudio } from '../lib/sound';
 import { PlusIcon } from '../components/icons';
 import { useCashier, type CashierScope } from '../features/cashier/useCashier';
 import { ApiError } from '../lib/api';
@@ -129,6 +130,21 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
   const [scope, setScope] = useState<CashierScope>('unpaid');
   const { session, orders, loading, error, live, reload } = useCashier(restaurantId, scope);
 
+  // Bip quand un nouveau paiement Mobile Money attend d'être validé
+  const [soundOn, setSoundOn] = useState(false);
+  const seenToVerify = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    const ids = orders.filter(awaitingValidation).map((o) => o.id);
+    if (seenToVerify.current === null) {
+      seenToVerify.current = new Set(ids);
+      return;
+    }
+    const fresh = ids.filter((id) => !seenToVerify.current!.has(id));
+    fresh.forEach((id) => seenToVerify.current!.add(id));
+    if (fresh.length > 0 && soundOn) beep();
+  }, [orders, loading, soundOn]);
+
   const [collecting, setCollecting] = useState<CashierOrder | null>(null);
   const [verifying, setVerifying] = useState<CashierOrder | null>(null);
   const [closing, setClosing] = useState<CashSessionView | null>(null);
@@ -178,6 +194,22 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
               {user && <span className="text-stone-400">· {user.fullName}</span>}
             </p>
           </div>
+          <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (!soundOn) {
+                unlockAudio();
+                beep();
+              }
+              setSoundOn((v) => !v);
+            }}
+            className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+              soundOn ? 'bg-brand-500 text-white shadow-md shadow-brand-500/30' : 'bg-stone-100 text-stone-600'
+            }`}
+          >
+            {soundOn ? 'Son activé' : 'Activer le son'}
+          </button>
           <button
             type="button"
             onClick={async () => {
@@ -188,6 +220,7 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
           >
             Déconnexion
           </button>
+          </div>
         </div>
       </header>
       )}
