@@ -23,7 +23,7 @@ function Announcer({ restaurantId, standalone }: { restaurantId: string; standal
     for (const o of ready) {
       if (!seen.current.has(o.id)) {
         seen.current.add(o.id);
-        if (active) speak(readyAnnouncement(o.number, placeLabel(o)));
+        if (active) speak(readyAnnouncement(o));
       }
     }
   }, [orders, loading, active]);
@@ -44,8 +44,7 @@ function Announcer({ restaurantId, standalone }: { restaurantId: string; standal
         <h2 className="text-lg font-semibold tracking-tight">Annonces vocales</h2>
         <p className="mt-1 text-sm text-stone-500">
           Branchez cet appareil aux haut-parleurs (câble jack, Bluetooth ou HDMI), activez les annonces et laissez
-          cette page ouverte. Quand le cuisinier marque une commande « prête », elle est annoncée deux fois avec le
-          numéro de la table.
+          cette page ouverte. Quand le cuisinier marque une commande « prête », elle est annoncée deux fois : « La commande de la table 5 est prête ».
         </p>
         <button
           type="button"
@@ -85,7 +84,7 @@ function Announcer({ restaurantId, standalone }: { restaurantId: string; standal
                 <button
                   type="button"
                   disabled={!active}
-                  onClick={() => speak(readyAnnouncement(o.number, placeLabel(o)))}
+                  onClick={() => speak(readyAnnouncement(o))}
                   className="mt-3 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-emerald-700 transition active:scale-[0.97] disabled:opacity-50"
                 >
                   Répéter l’annonce

@@ -196,7 +196,7 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
         { method: 'PATCH', body: JSON.stringify({ status: to }) },
       );
       apply(data.order);
-      if (to === 'READY' && voiceOn) speak(readyAnnouncement(data.order.number, placeLabel(data.order)));
+      if (to === 'READY' && voiceOn) speak(readyAnnouncement(data.order));
     } catch (e) {
       setActionError(e instanceof ApiError ? e.message : 'Erreur inattendue');
       if (e instanceof ApiError && e.code === 'ORDER_CHANGED') void reload();
