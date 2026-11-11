@@ -1,5 +1,6 @@
 import { ChangePasswordButton } from '../components/ChangePassword';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { RequireRole } from '../components/RequireRole';
 import { StaffLayout } from '../components/StaffLayout';
@@ -44,12 +45,14 @@ function OrderCard({
   busy,
   readOnly,
   onAdvance,
+  onTicket,
 }: {
   order: OrderView;
   now: number;
   busy: boolean;
   readOnly: boolean;
   onAdvance: (to: OrderStatus) => void;
+  onTicket: () => void;
 }) {
   const minutes = Math.max(0, Math.floor((now - new Date(order.createdAt).getTime()) / 60_000));
   const tone =
@@ -106,6 +109,16 @@ function OrderCard({
         ))}
       </ul>
 
+      {!readOnly && (
+        <button
+          type="button"
+          onClick={onTicket}
+          className="mt-3 w-full rounded-xl bg-stone-100 px-3 py-2 text-sm font-medium text-stone-600 transition active:scale-[0.98]"
+        >
+          Imprimer le ticket
+        </button>
+      )}
+
       {order.notes && (
         <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
           {order.notes}
@@ -156,6 +169,19 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
   const { orders, loading, error, live, apply, reload } = useKitchen(restaurantId, () => {
     if (soundRef.current) beep();
   });
+
+  // Ticket de cuisine : imprimé tel quel, sans le reste de l'écran
+  const [ticket, setTicket] = useState<OrderView | null>(null);
+  useEffect(() => {
+    if (!ticket) return;
+    const done = () => setTicket(null);
+    window.addEventListener('afterprint', done);
+    const t = window.setTimeout(() => window.print(), 100);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('afterprint', done);
+    };
+  }, [ticket]);
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -255,6 +281,35 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
       </header>
       )}
 
+      {ticket &&
+        createPortal(
+          <div className="print-receipt" style={{ fontFamily: 'monospace', fontSize: '14px', width: '72mm' }}>
+            <p style={{ textAlign: 'center', fontWeight: 700 }}>{ticket.restaurantName}</p>
+            <p style={{ textAlign: 'center', fontSize: '28px', fontWeight: 700 }}>#{ticket.number}</p>
+            <p style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700 }}>{placeLabel(ticket)}</p>
+            <p style={{ textAlign: 'center' }}>
+              {new Date(ticket.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+            <hr />
+            {ticket.items.map((i, idx) => (
+              <div key={idx} style={{ margin: '6px 0' }}>
+                <strong>
+                  {i.quantity} x {i.productName}
+                </strong>
+                {i.options.length > 0 && <div>+ {i.options.join(', ')}</div>}
+                {i.notes && <div>Note : {i.notes}</div>}
+              </div>
+            ))}
+            {ticket.notes && (
+              <>
+                <hr />
+                <div>Note : {ticket.notes}</div>
+              </>
+            )}
+          </div>,
+          document.body,
+        )}
+
       <div className={readOnly ? undefined : 'mx-auto max-w-7xl p-4'}>
         {readOnly && (
           <p className="mb-4 rounded-2xl bg-stone-100 px-4 py-3 text-sm font-medium text-stone-600">
@@ -300,6 +355,7 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
                         busy={busyId === o.id}
                         readOnly={readOnly}
                         onAdvance={(to) => void advance(o, to)}
+                        onTicket={() => setTicket(o)}
                       />
                     ))}
                   </div>
