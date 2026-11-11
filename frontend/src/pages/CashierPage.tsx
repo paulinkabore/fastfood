@@ -5,7 +5,9 @@ import { StaffLayout } from '../components/StaffLayout';
 import { CloseSessionSheet } from '../components/CloseSessionSheet';
 import { CollectSheet } from '../components/CollectSheet';
 import { CounterOrderSheet } from '../components/CounterOrderSheet';
+import { MobileMoneySheet } from '../components/MobileMoneySheet';
 import { ReceiptSheet } from '../components/ReceiptSheet';
+import { awaitingValidation } from '../lib/mobileMoney';
 import { PlusIcon } from '../components/icons';
 import { useCashier, type CashierScope } from '../features/cashier/useCashier';
 import { ApiError } from '../lib/api';
@@ -43,17 +45,21 @@ function OrderRow({
   hasSession,
   readOnly,
   onCollect,
+  onVerify,
   onReceipt,
 }: {
   order: CashierOrder;
   hasSession: boolean;
   readOnly: boolean;
   onCollect: () => void;
+  onVerify: () => void;
   onReceipt: () => void;
 }) {
   const st = STATUS[order.status];
   const pay = PAYMENT[order.paymentStatus];
-  const canPay = !readOnly && order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED';
+  const toVerify = awaitingValidation(order);
+  const payerPhone = order.payments.find((p) => p.method === 'MOBILE_MONEY' && p.status === 'PENDING')?.payerPhone;
+  const canPay = !readOnly && !toVerify && order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED';
   const hasReceipt = order.paymentStatus === 'PAID' || order.paymentStatus === 'REFUNDED';
   const summary = order.items.map((i) => `${i.quantity} × ${i.productName}`).join(', ');
 
@@ -69,14 +75,28 @@ function OrderRow({
         </div>
         <div className="flex flex-col items-end gap-1.5">
           <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${st.style}`}>{st.label}</span>
-          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${pay.style}`}>{pay.label}</span>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${pay.style}`}>{toVerify ? 'Mobile Money à valider' : pay.label}</span>
         </div>
       </div>
 
       <p className="mt-3 line-clamp-2 text-sm text-stone-600">{summary}</p>
+      {toVerify && payerPhone && (
+        <p className="mt-2 text-sm text-stone-600">
+          Déposant : <strong className="text-stone-900">{payerPhone}</strong>
+        </p>
+      )}
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <p className="text-lg font-semibold">{fcfa(order.totalFcfa)}</p>
+        {toVerify && !readOnly && (
+          <button
+            type="button"
+            onClick={onVerify}
+            className="rounded-2xl bg-emerald-600 px-5 py-2.5 font-semibold text-white shadow-md shadow-emerald-600/25 transition active:scale-[0.97]"
+          >
+            Vérifier le paiement
+          </button>
+        )}
         {canPay && (
           <button
             type="button"
@@ -110,6 +130,7 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
   const { session, orders, loading, error, live, reload } = useCashier(restaurantId, scope);
 
   const [collecting, setCollecting] = useState<CashierOrder | null>(null);
+  const [verifying, setVerifying] = useState<CashierOrder | null>(null);
   const [closing, setClosing] = useState<CashSessionView | null>(null);
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const [counterOpen, setCounterOpen] = useState(false);
@@ -280,13 +301,16 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
             </p>
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
-              {orders.map((o) => (
+              {[...orders]
+                .sort((a, b) => Number(awaitingValidation(b)) - Number(awaitingValidation(a)))
+                .map((o) => (
                 <OrderRow
                   key={o.id}
                   order={o}
                   hasSession={Boolean(session)}
                   readOnly={readOnly}
                   onCollect={() => setCollecting(o)}
+                  onVerify={() => setVerifying(o)}
                   onReceipt={() => setReceiptId(o.id)}
                 />
               ))}
@@ -302,6 +326,15 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
           onClose={() => setCollecting(null)}
           onPaid={() => void reload()}
           onReceipt={(id) => setReceiptId(id)}
+        />
+      )}
+
+      {verifying && (
+        <MobileMoneySheet
+          restaurantId={restaurantId}
+          order={verifying}
+          onClose={() => setVerifying(null)}
+          onDone={() => void reload()}
         />
       )}
 

@@ -17,6 +17,9 @@ const schema = z
     // none = espèces seulement ; mock = simulation (développement uniquement)
     PAYMENT_PROVIDER: z.enum(['mock', 'none']).default('none'),
     PAYMENT_WEBHOOK_SECRET: z.string().default(''),
+    // Paiement Mobile Money manuel : numéro marchand composé par le client, puis validé par le caissier
+    MOBILE_MONEY_MERCHANT_CODE: z.string().regex(/^\d{6,15}$/).default('74639266'),
+    MOBILE_MONEY_MERCHANT_NAME: z.string().default('RESTAURANT NJ_DISTRICT'),
     // Nombre de proxys devant le serveur (1 chez la plupart des hébergeurs, 0 en local)
     TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
     // true : le serveur sert aussi les écrans construits du frontend

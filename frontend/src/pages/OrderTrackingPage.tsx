@@ -3,7 +3,9 @@ import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api';
 import { fcfa } from '../lib/format';
 import { getSocket } from '../lib/socket';
-import { REALTIME } from '../lib/realtime';
+import { POLL_MS, REALTIME } from '../lib/realtime';
+import { awaitingValidation } from '../lib/mobileMoney';
+import { ReceiptSheet } from '../components/ReceiptSheet';
 import { usePublicConfig } from '../lib/config';
 import type { OrderView, PaymentStatus } from '../lib/types';
 import { CheckIcon } from '../components/icons';
@@ -21,8 +23,17 @@ const PAYMENT: Record<PaymentStatus, { label: string; style: string }> = {
 function headline(order: OrderView): { title: string; text: string } {
   const takeaway = order.type === 'TAKEAWAY';
   const delivery = order.type === 'DELIVERY';
+  if (awaitingValidation(order)) {
+    return {
+      title: 'Paiement en cours de vérification',
+      text: 'Le caissier vérifie votre paiement. Votre commande part en cuisine dès qu’il est validé.',
+    };
+  }
   switch (order.status) {
     case 'RECEIVED':
+      if (order.paymentStatus === 'PAID') {
+        return { title: 'Commande validée', text: 'Votre paiement est validé, la commande part en cuisine.' };
+      }
       return { title: 'Commande reçue', text: 'Le restaurant a bien reçu votre commande.' };
     case 'PREPARING':
       return { title: 'En préparation', text: 'Votre commande est en cours de préparation.' };
@@ -54,6 +65,7 @@ export default function OrderTrackingPage() {
   const [payError, setPayError] = useState<string | null>(null);
   const [checking, setChecking] = useState(returning);
   const { mobileMoney } = usePublicConfig();
+  const [receiptOpen, setReceiptOpen] = useState(false);
 
   // Actualisation de secours toutes les 30 secondes
   useEffect(() => {
@@ -75,7 +87,7 @@ export default function OrderTrackingPage() {
         }
         setError('Connexion perdue, nouvelle tentative…');
       }
-      timer = window.setTimeout(tick, 30000);
+      timer = window.setTimeout(tick, REALTIME ? 30000 : POLL_MS);
     };
 
     tick();
@@ -163,7 +175,9 @@ export default function OrderTrackingPage() {
   const steps = ['Reçue', 'En préparation', 'Prête', order.type === 'DELIVERY' ? 'Livrée' : order.type === 'TAKEAWAY' ? 'Récupérée' : 'Servie'];
   const { title, text } = headline(order);
   const payment = PAYMENT[order.paymentStatus];
-  const canPayOnline = order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED' && mobileMoney;
+  const waiting = awaitingValidation(order);
+  const canPayOnline =
+    order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED' && mobileMoney && !waiting;
 
   return (
     <main className="mx-auto min-h-dvh max-w-lg space-y-4 px-4 pb-10 pt-8">
@@ -213,8 +227,18 @@ export default function OrderTrackingPage() {
         )}
 
         <p className={`mt-6 rounded-2xl px-4 py-3 text-sm font-medium ${payment.style}`}>
-          {checking ? 'Vérification du paiement…' : payment.label}
+          {checking ? 'Vérification du paiement…' : waiting ? 'Paiement Mobile Money à valider' : payment.label}
         </p>
+
+        {(order.paymentStatus === 'PAID' || order.paymentStatus === 'REFUNDED') && (
+          <button
+            type="button"
+            onClick={() => setReceiptOpen(true)}
+            className="mt-3 w-full rounded-2xl bg-stone-900 px-5 py-3.5 font-semibold text-white shadow-lg shadow-stone-900/20 transition active:scale-[0.98]"
+          >
+            Télécharger mon reçu
+          </button>
+        )}
 
         {canPayOnline && !checking && (
           <div className="mt-3 space-y-2">
@@ -273,6 +297,13 @@ export default function OrderTrackingPage() {
         >
           Commander autre chose
         </Link>
+      )}
+      {receiptOpen && (
+        <ReceiptSheet
+          orderId={orderId}
+          buttonLabel="Télécharger (PDF)"
+          onClose={() => setReceiptOpen(false)}
+        />
       )}
     </main>
   );

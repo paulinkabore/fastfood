@@ -300,6 +300,7 @@ model Payment {
   refundedAt        DateTime?
   refundedById      String?
   refundSessionId   String?
+  payerPhone        String?
   checkoutUrl       String?
   failureReason     String?
   expiresAt         DateTime?

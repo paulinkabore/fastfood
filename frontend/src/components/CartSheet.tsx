@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
 import { usePublicConfig } from '../lib/config';
 import { fcfa } from '../lib/format';
+import { ussdCode, ussdLink } from '../lib/mobileMoney';
 import { unitPrice, type Cart } from '../features/order/useCart';
 import { Sheet } from './Sheet';
 import { Stepper } from './Stepper';
@@ -59,7 +60,9 @@ export function CartSheet({
   const submitting = useRef(false); // verrou immédiat contre le double clic
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { mobileMoney } = usePublicConfig();
+  const { manualMobileMoney } = usePublicConfig();
+  const mobileMoney = manualMobileMoney !== null;
+  const [payer, setPayer] = useState('');
   const [picked, setPicked] = useState<Method | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -74,6 +77,9 @@ export function CartSheet({
         return setError('Indiquez un numéro de téléphone valide (8 chiffres minimum).');
       }
     }
+    if (method === 'MOBILE_MONEY' && !/^\+?\d{8,15}$/.test(payer.replace(/[\s.-]/g, ''))) {
+      return setError('Indiquez le numéro qui a servi au paiement Mobile Money (8 chiffres minimum).');
+    }
     submitting.current = true;
     setLoading(true);
     setError(null);
@@ -81,6 +87,7 @@ export function CartSheet({
       const { order } = await api.createOrder(token, {
         idempotencyKey: cart.idempotencyKey,
         notes: cart.notes.trim() || undefined,
+        payment: method === 'MOBILE_MONEY' ? { method: 'MOBILE_MONEY', payerPhone: payer.trim() } : undefined,
         customer: delivery ? { name: name.trim(), phone: phone.trim() } : undefined,
         items: cart.lines.map((l) => ({
           productId: l.productId,
@@ -91,15 +98,6 @@ export function CartSheet({
       });
       cart.clear();
 
-      if (method === 'MOBILE_MONEY') {
-        try {
-          const { checkoutUrl } = await api.payMobileMoney(order.id);
-          window.location.assign(checkoutUrl); // page de paiement du prestataire
-          return;
-        } catch {
-          /* la commande existe : le client pourra payer depuis la page de suivi */
-        }
-      }
       navigate(`/commande/${order.id}`, { state: { token } });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Erreur inattendue, réessayez.');
@@ -208,11 +206,42 @@ export function CartSheet({
               <MethodCard
                 active={method === 'MOBILE_MONEY'}
                 title="Mobile Money"
-                text="Vous payez maintenant sur votre téléphone, en toute sécurité."
+                text="Vous payez maintenant avec votre téléphone, le caissier valide ensuite votre paiement."
                 onSelect={() => setPicked('MOBILE_MONEY')}
               />
             )}
           </div>
+
+          {method === 'MOBILE_MONEY' && manualMobileMoney && (
+            <div className="mt-3 space-y-3 rounded-2xl bg-stone-50 p-4">
+              <ol className="list-decimal space-y-1 pl-5 text-sm text-stone-600">
+                <li>Touchez le bouton ci-dessous pour ouvrir le paiement sur votre téléphone.</li>
+                <li>Validez avec votre code secret.</li>
+                <li>Revenez ici, saisissez le numéro utilisé et confirmez la commande.</li>
+              </ol>
+              <a
+                href={ussdLink(manualMobileMoney.merchantCode, cart.subtotal)}
+                className="block rounded-2xl bg-brand-500 px-5 py-3.5 text-center font-semibold text-white shadow-md shadow-brand-500/30 transition active:scale-[0.98]"
+              >
+                Payer {fcfa(cart.subtotal)} par Mobile Money
+              </a>
+              <p className="text-center text-xs text-stone-500">
+                Code : <span className="font-mono">{ussdCode(manualMobileMoney.merchantCode, cart.subtotal)}</span>
+                <br />
+                Nom affiché : <strong>{manualMobileMoney.merchantName}</strong>
+              </p>
+              <input
+                value={payer}
+                onChange={(e) => setPayer(e.target.value)}
+                placeholder="Numéro utilisé pour le paiement"
+                aria-label="Numéro utilisé pour le paiement"
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={20}
+                className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
+              />
+            </div>
+          )}
         </div>
 
         {error && (
@@ -234,7 +263,7 @@ export function CartSheet({
           {loading
             ? 'Envoi en cours…'
             : method === 'MOBILE_MONEY'
-              ? 'Commander et payer'
+              ? 'Confirmer mon paiement et commander'
               : delivery
                 ? 'Commander la livraison'
                 : 'Confirmer la commande'}

@@ -103,7 +103,15 @@ const presentPayment = (p: {
 const cashierInclude = {
   ...orderInclude,
   payments: {
-    select: { id: true, method: true, status: true, receiptNumber: true, confirmedAt: true },
+    select: {
+      id: true,
+      method: true,
+      status: true,
+      provider: true,
+      payerPhone: true,
+      receiptNumber: true,
+      confirmedAt: true,
+    },
   },
 } satisfies Prisma.OrderInclude;
 
@@ -319,9 +327,9 @@ async function collectCash(opts: {
 
     const updatedOrder = await tx.order.update({
       where: { id: order.id },
-      data: { paymentStatus: 'PAID' },
+      data: { paymentStatus: 'PAID', sentToKitchenAt: order.sentToKitchenAt ?? new Date() },
     });
-        // Un paiement Mobile Money encore en attente n'a plus lieu d'être
+    // Un paiement Mobile Money encore en attente n'a plus lieu d'être
     await tx.payment.updateMany({
       where: { orderId: order.id, method: 'MOBILE_MONEY', status: 'PENDING' },
       data: { status: 'FAILED', failureReason: 'Payé en espèces à la caisse' },
@@ -374,6 +382,119 @@ cashierRouter.post(
       changeFcfa: result.changeFcfa,
       unchanged: result.unchanged,
     });
+  }),
+);
+
+// ================= Mobile Money : validation par le caissier =================
+// Le client a composé le code et saisi son numéro ; le caissier compare avec le message de l'opérateur
+async function findPendingManual(tx: Db, restaurantId: string, orderId: string) {
+  const order = await tx.order.findFirst({ where: { id: orderId, restaurantId } });
+  if (!order) throw new AppError(404, 'NOT_FOUND', 'Commande introuvable');
+  const payment = await tx.payment.findFirst({
+    where: { orderId, method: 'MOBILE_MONEY', provider: 'manual', status: 'PENDING' },
+  });
+  return { order, payment };
+}
+
+cashierRouter.post(
+  '/orders/:orderId/pay/mobile-money/validate',
+  ...cashierOnly,
+  asyncHandler(async (req, res) => {
+    const restaurantId = rid(req);
+    const orderId = String(req.params.orderId);
+
+    const result = await prisma.$transaction(async (tx) => {
+      await lockRestaurant(tx, restaurantId);
+      const { order, payment } = await findPendingManual(tx, restaurantId, orderId);
+      if (order.paymentStatus === 'PAID') return { order, unchanged: true };
+      if (order.status === 'CANCELLED') {
+        throw new AppError(409, 'ORDER_CANCELLED', 'Cette commande est annulée');
+      }
+      if (!payment) throw new AppError(409, 'NO_PENDING_PAYMENT', 'Aucun paiement Mobile Money en attente');
+
+      const last = await tx.payment.aggregate({
+        where: { restaurantId },
+        _max: { receiptNumber: true },
+      });
+      const receiptNumber = (last._max.receiptNumber ?? 0) + 1;
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'PAID',
+          amountFcfa: order.totalFcfa,
+          confirmedAt: new Date(),
+          confirmedById: uid(req),
+          receiptNumber,
+        },
+      });
+      // Une fois validée, la commande part en cuisine
+      const updated = await tx.order.update({
+        where: { id: order.id },
+        data: { paymentStatus: 'PAID', sentToKitchenAt: order.sentToKitchenAt ?? new Date() },
+      });
+      await tx.auditLog.create({
+        data: {
+          restaurantId,
+          userId: uid(req),
+          action: 'PAYMENT_MOBILE_MONEY_VALIDATED',
+          entity: 'Payment',
+          entityId: payment.id,
+          details: {
+            orderNumber: order.number,
+            amountFcfa: order.totalFcfa,
+            payerPhone: payment.payerPhone,
+            receiptNumber,
+          },
+        },
+      });
+      return { order: updated, unchanged: false };
+    });
+
+    if (!result.unchanged) {
+      void emitOrderCreated(result.order.id); // la cuisine la reçoit
+      void emitOrderUpdated(result.order.id); // le client voit « validée »
+    }
+    res.json({ ok: true, unchanged: result.unchanged });
+  }),
+);
+
+cashierRouter.post(
+  '/orders/:orderId/pay/mobile-money/reject',
+  ...cashierOnly,
+  asyncHandler(async (req, res) => {
+    const restaurantId = rid(req);
+    const orderId = String(req.params.orderId);
+    const { reason } = z.object({ reason: z.string().trim().min(3).max(200) }).parse(req.body ?? {});
+
+    const order = await prisma.$transaction(async (tx) => {
+      await lockRestaurant(tx, restaurantId);
+      const found = await findPendingManual(tx, restaurantId, orderId);
+      if (!found.payment || found.order.paymentStatus !== 'PENDING' || found.order.sentToKitchenAt) {
+        throw new AppError(409, 'NOT_REJECTABLE', 'Cette commande n’est plus en attente de validation');
+      }
+      await tx.payment.update({
+        where: { id: found.payment.id },
+        data: { status: 'FAILED', failureReason: reason },
+      });
+      const cancelled = await tx.order.update({
+        where: { id: found.order.id },
+        data: { status: 'CANCELLED', cancelledReason: `Paiement refusé : ${reason}` },
+      });
+      await tx.auditLog.create({
+        data: {
+          restaurantId,
+          userId: uid(req),
+          action: 'PAYMENT_MOBILE_MONEY_REJECTED',
+          entity: 'Payment',
+          entityId: found.payment.id,
+          details: { orderNumber: found.order.number, reason, payerPhone: found.payment.payerPhone },
+        },
+      });
+      return cancelled;
+    });
+
+    void emitOrderUpdated(order.id);
+    res.json({ ok: true });
   }),
 );
 

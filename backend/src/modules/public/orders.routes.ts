@@ -41,8 +41,16 @@ const customerSchema = z.object({
     .pipe(z.string().regex(/^\+?\d{8,15}$/, 'Numéro de téléphone invalide')),
 });
 
+const phoneSchema = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/[\s.-]/g, ''))
+  .pipe(z.string().regex(/^\+?\d{8,15}$/, 'Numéro de téléphone invalide'));
+
 const orderSchema = z.object({
   idempotencyKey: z.string().uuid(),
+  // Mobile Money : numéro qui a servi au dépôt, vérifié ensuite par le caissier
+  payment: z.object({ method: z.literal('MOBILE_MONEY'), payerPhone: phoneSchema }).optional(),
   customer: customerSchema.optional(),
   items: z.array(orderItemSchema).min(1).max(40),
   notes: z.string().trim().max(300).optional(),
@@ -94,6 +102,7 @@ publicOrdersRouter.post(
       notes: body.notes,
       customerName: delivery ? body.customer?.name : undefined,
       customerPhone: delivery ? body.customer?.phone : undefined,
+      mobileMoneyPayerPhone: body.payment?.payerPhone,
       idempotencyKey: body.idempotencyKey,
       items: body.items,
     });
@@ -121,5 +130,43 @@ publicOrdersRouter.get(
     if (!order) throw new AppError(404, 'NOT_FOUND', 'Commande introuvable');
     res.setHeader('Cache-Control', 'no-store');
     res.json({ order: presentOrder(order) });
+  }),
+);
+// ---------- Reçu du client ----------
+// Disponible seulement une fois le paiement validé par le caissier
+publicOrdersRouter.get(
+  '/orders/:id/receipt',
+  trackingLimiter,
+  asyncHandler(async (req, res) => {
+    const id = String(req.params.id);
+    if (!z.string().uuid().safeParse(id).success) {
+      throw new AppError(404, 'NOT_FOUND', 'Commande introuvable');
+    }
+    const order = await prisma.order.findUnique({ where: { id }, include: orderInclude });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'Commande introuvable');
+    const payment = await prisma.payment.findFirst({
+      where: { orderId: id, confirmedAt: { not: null } },
+      orderBy: { confirmedAt: 'desc' },
+    });
+    if (!payment) throw new AppError(409, 'NOT_PAID', 'Le paiement n’est pas encore validé');
+
+    const view = presentOrder(order);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      receipt: {
+        restaurantName: view.restaurantName,
+        receiptNumber: payment.receiptNumber,
+        orderNumber: view.number,
+        issuedAt: payment.confirmedAt,
+        orderType: view.type,
+        tableLabel: view.tableLabel,
+        items: view.items.map((i) => ({ ...i, lineTotalFcfa: i.unitPriceFcfa * i.quantity })),
+        totalFcfa: view.totalFcfa,
+        method: payment.method,
+        status: payment.status,
+        refundedAt: payment.refundedAt,
+        cashierName: null,
+      },
+    });
   }),
 );

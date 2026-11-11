@@ -20,6 +20,8 @@ export type NewOrderInput = {
   notes?: string;
   customerName?: string;
   customerPhone?: string;
+  // Mobile Money manuel : la commande attend la validation du caissier avant la cuisine
+  mobileMoneyPayerPhone?: string;
   idempotencyKey: string;
   items: z.infer<typeof orderItemSchema>[];
 };
@@ -99,10 +101,21 @@ export async function createOrder(input: NewOrderInput) {
             customerPhone: input.customerPhone,
             totalFcfa: total,
             idempotencyKey: input.idempotencyKey,
-            sentToKitchenAt: new Date(), // toute commande part en cuisine tout de suite
+            // Part en cuisine tout de suite, sauf Mobile Money : le caissier doit d'abord valider
+            sentToKitchenAt: input.mobileMoneyPayerPhone ? null : new Date(),
             items: { create: lines },
             // Paiement en espèces : en attente jusqu'à l'encaissement
-            payments: { create: { restaurantId, method: 'CASH', amountFcfa: total } },
+            payments: {
+              create: input.mobileMoneyPayerPhone
+                ? {
+                    restaurantId,
+                    method: 'MOBILE_MONEY',
+                    provider: 'manual',
+                    payerPhone: input.mobileMoneyPayerPhone,
+                    amountFcfa: total,
+                  }
+                : { restaurantId, method: 'CASH', amountFcfa: total },
+            },
           },
           include: orderInclude,
         });

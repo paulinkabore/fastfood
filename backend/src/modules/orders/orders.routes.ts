@@ -96,6 +96,11 @@ ordersRouter.patch(
       return;
     }
 
+    // Commande Mobile Money pas encore validée par le caissier : la cuisine n'y touche pas
+    if (!order.sentToKitchenAt && status !== 'CANCELLED') {
+      throw new AppError(409, 'AWAITING_PAYMENT', 'Le paiement de cette commande n’est pas encore validé');
+    }
+
     if (!WHO[status].includes(req.membership!.role)) {
       throw new AppError(403, 'FORBIDDEN', 'Votre rôle ne permet pas ce changement de statut');
     }

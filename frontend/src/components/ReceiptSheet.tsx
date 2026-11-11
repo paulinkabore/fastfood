@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ApiError } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { authRequest } from '../lib/auth';
 import { dateTimeFr, fcfa } from '../lib/format';
 import type { ReceiptView } from '../lib/types';
@@ -62,17 +62,22 @@ export function ReceiptSheet({
   restaurantId,
   orderId,
   onClose,
+  buttonLabel = 'Imprimer',
 }: {
-  restaurantId: string;
+  restaurantId?: string; // absent : reçu du client (page de suivi)
   orderId: string;
   onClose: () => void;
+  buttonLabel?: string;
 }) {
   const [receipt, setReceipt] = useState<ReceiptView | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    authRequest<{ receipt: ReceiptView }>(`/restaurants/${restaurantId}/orders/${orderId}/receipt`)
+    (restaurantId
+      ? authRequest<{ receipt: ReceiptView }>(`/restaurants/${restaurantId}/orders/${orderId}/receipt`)
+      : api.getReceipt(orderId)
+    )
       .then((d) => {
         if (!cancelled) setReceipt(d.receipt);
       })
@@ -118,7 +123,7 @@ export function ReceiptSheet({
             onClick={() => window.print()}
             className="w-full rounded-2xl bg-stone-900 px-5 py-4 font-semibold text-white shadow-lg shadow-stone-900/20 transition active:scale-[0.98] disabled:opacity-50"
           >
-            Imprimer
+            {buttonLabel}
           </button>
         </div>
       </Sheet>

@@ -22,7 +22,13 @@ export function setupProduction(app: Express) {
   // Réglages publics lus par les écrans avant de proposer le Mobile Money
   app.get('/api/v1/public/config', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    res.json({ mobileMoney: env.PAYMENT_PROVIDER !== 'none' });
+    res.json({
+      mobileMoney: env.PAYMENT_PROVIDER !== 'none',
+      manualMobileMoney: {
+        merchantCode: env.MOBILE_MONEY_MERCHANT_CODE,
+        merchantName: env.MOBILE_MONEY_MERCHANT_NAME,
+      },
+    });
   });
 
   if (!env.SERVE_FRONTEND) return;

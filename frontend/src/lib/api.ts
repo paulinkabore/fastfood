@@ -1,4 +1,9 @@
-import type { OrderView, PublicMenu } from './types';
+import type { OrderView, PublicMenu, ReceiptView } from './types';
+
+export type PublicConfig = {
+  mobileMoney: boolean;
+  manualMobileMoney: { merchantCode: string; merchantName: string } | null;
+};
 
 export class ApiError extends Error {
   status: number;
@@ -34,6 +39,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export type OrderPayload = {
   idempotencyKey: string;
   notes?: string;
+  payment?: { method: 'MOBILE_MONEY'; payerPhone: string };
   customer?: { name: string; phone: string };
   items: { productId: string; quantity: number; optionIds: string[]; notes?: string }[];
 };
@@ -46,7 +52,8 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   getOrder: (id: string) => request<{ order: OrderView }>(`/public/orders/${id}`),
-  getConfig: () => request<{ mobileMoney: boolean }>('/public/config'),
+  getConfig: () => request<PublicConfig>('/public/config'),
+  getReceipt: (orderId: string) => request<{ receipt: ReceiptView }>(`/public/orders/${orderId}/receipt`),
   // Démarre un paiement Mobile Money : renvoie l'adresse de la page du prestataire
   payMobileMoney: (orderId: string) =>
     request<{ checkoutUrl: string; reused: boolean }>(`/public/orders/${orderId}/pay/mobile-money`, {

@@ -60,6 +60,8 @@ export type CashierOrder = OrderView & {
     id: string;
     method: string;
     status: PaymentStatus;
+    provider: string | null;
+    payerPhone: string | null;
     receiptNumber: number | null;
     confirmedAt: string | null;
   }[];
