@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { Logo } from '../components/Logo';
+import { BRAND_NAME } from '../lib/brand';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -42,10 +44,11 @@ export default function LoginPage() {
         className="w-full max-w-sm space-y-5 rounded-3xl bg-white p-8 shadow-xl shadow-stone-200/60 ring-1 ring-stone-200/70"
       >
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Fast-Food <span className="text-brand-500">QR</span>
-          </h1>
-          <p className="mt-1 text-sm text-stone-500">Connexion du personnel</p>
+          <div className="flex flex-col items-center text-center">
+            <Logo className="h-28" />
+            <h1 className="sr-only">{BRAND_NAME}</h1>
+          </div>
+          <p className="mt-1 text-center text-sm text-stone-500">Connexion du personnel</p>
         </div>
 
         <div>

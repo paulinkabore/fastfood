@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
+import { Logo } from "../components/Logo";
+import { BRAND_NAME, showRestaurantName } from "../lib/brand";
 import { fcfa } from "../lib/format";
 import type { PublicMenu } from "../lib/types";
 import { useCart } from "../features/order/useCart";
@@ -146,9 +148,12 @@ function ClientMenu({ token }: { token: string }) {
     <div className="min-h-dvh pb-32">
       <header className="bg-gradient-to-b from-brand-50 to-stone-50 px-4 pb-5 pt-8">
         <div className="mx-auto max-w-3xl">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {data.restaurant.name}
-          </h1>
+          <div className="flex flex-col items-center text-center">
+            <Logo className="h-20" />
+            <h1 className="mt-2 text-lg font-semibold tracking-tight">
+              {showRestaurantName(data.restaurant.name) ? data.restaurant.name : BRAND_NAME}
+            </h1>
+          </div>
           <p className="mt-2 inline-flex items-center rounded-full bg-white px-3 py-1 text-sm font-medium text-stone-600 shadow-sm ring-1 ring-stone-200/70">
             {data.table
               ? data.table.label

@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
 import { fcfa } from '../lib/format';
+import { BRAND_NAME, showRestaurantName } from '../lib/brand';
 import { placeLabel } from '../lib/orderPlace';
 import type { CashierOrder } from '../lib/types';
 
@@ -7,7 +8,9 @@ import type { CashierOrder } from '../lib/types';
 export function BillTicket({ order }: { order: CashierOrder }) {
   return createPortal(
     <div className="print-receipt" style={{ fontFamily: 'monospace', fontSize: '13px' }}>
-      <p style={{ textAlign: 'center', fontWeight: 700, fontSize: '16px' }}>{order.restaurantName}</p>
+      <img src="/logo.png" alt="" style={{ display: 'block', margin: '0 auto 4px', height: '16mm', width: 'auto', filter: 'grayscale(1) contrast(1.4)' }} />
+      <p style={{ textAlign: 'center', fontWeight: 700, fontSize: '14px' }}>{BRAND_NAME}</p>
+      {showRestaurantName(order.restaurantName) && <p style={{ textAlign: 'center' }}>{order.restaurantName}</p>}
       <p style={{ textAlign: 'center' }}>TICKET DE CAISSE</p>
       <p style={{ textAlign: 'center', fontSize: '26px', fontWeight: 700 }}>#{order.number}</p>
       <p style={{ textAlign: 'center', fontSize: '17px', fontWeight: 700 }}>{placeLabel(order)}</p>

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Logo } from '../components/Logo';
+import { BRAND_NAME } from '../lib/brand';
 
 type Health = { status: string; timestamp: string };
 
@@ -16,9 +18,10 @@ export default function HomePage() {
   return (
     <main className="grid min-h-dvh place-items-center p-6">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl shadow-stone-200/60 ring-1 ring-stone-200">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Fast-Food <span className="text-brand-500">QR</span>
-        </h1>
+        <div className="flex justify-center">
+          <Logo className="h-28" />
+        </div>
+        <h1 className="sr-only">{BRAND_NAME}</h1>
         <p className="mt-1 text-sm text-stone-500">Vérification de la connexion à l'API</p>
         <div className="mt-6 flex items-center gap-3 rounded-xl bg-stone-50 p-4">
           <span

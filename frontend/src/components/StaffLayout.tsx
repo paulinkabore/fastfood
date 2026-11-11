@@ -2,6 +2,8 @@ import { ChangePasswordButton } from './ChangePassword';
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { authRequest, useAuth } from '../lib/auth';
+import { BRAND_NAME, showRestaurantName } from '../lib/brand';
+import { Logo } from './Logo';
 
 type IconProps = { className?: string };
 
@@ -188,11 +190,11 @@ export function StaffLayout({
       >
         <div className="flex items-center justify-between gap-3 border-b border-stone-100 px-4 py-4">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-brand-500 text-base font-bold text-white shadow-md shadow-brand-500/30">
-              {restaurant.charAt(0).toUpperCase()}
-            </span>
+            <Logo className="h-11 shrink-0" />
             <div className="min-w-0">
-              <p className="truncate font-semibold tracking-tight">{restaurant}</p>
+              <p className="truncate text-sm font-semibold tracking-tight">
+                {showRestaurantName(restaurant) ? restaurant : BRAND_NAME}
+              </p>
               <p className="text-xs text-stone-500">Espace gérant</p>
             </div>
           </div>
