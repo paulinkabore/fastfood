@@ -194,3 +194,71 @@ adminRouter.patch(
     res.json({ ok: true });
   }),
 );
+
+// ---------- Suppression définitive d'un restaurant ----------
+// Efface TOUTES ses données. Le nom exact doit être répété pour confirmer.
+adminRouter.delete(
+  '/restaurants/:id',
+  asyncHandler(async (req, res) => {
+    const id = String(req.params.id);
+    const restaurant = await getRestaurant(id);
+    const { confirmName } = z.object({ confirmName: z.string() }).parse(req.body ?? {});
+    if (confirmName.trim() !== restaurant.name) {
+      throw new AppError(400, 'CONFIRMATION_MISMATCH', 'Le nom saisi ne correspond pas au restaurant');
+    }
+
+    await prisma.$transaction(
+      async (tx) => {
+        // Comptes qui n'existent que pour ce restaurant (jamais un super-admin)
+        const members = await tx.restaurantMembership.findMany({
+          where: { restaurantId: id },
+          select: { userId: true },
+        });
+        const candidateIds = [...new Set(members.map((m) => m.userId))];
+        const elsewhere = await tx.restaurantMembership.findMany({
+          where: { userId: { in: candidateIds }, restaurantId: { not: id } },
+          select: { userId: true },
+        });
+        const keep = new Set(elsewhere.map((m) => m.userId));
+        const owned = await tx.user.findMany({
+          where: { id: { in: candidateIds.filter((u) => !keep.has(u)) }, globalRole: 'USER' },
+          select: { id: true },
+        });
+        const userIds = owned.map((u) => u.id);
+
+        // Dans l'ordre des dépendances : les lignes qui en référencent d'autres partent d'abord
+        await tx.refreshToken.deleteMany({
+          where: { OR: [{ restaurantId: id }, { userId: { in: userIds } }] },
+        });
+        await tx.stockMovement.deleteMany({ where: { restaurantId: id } });
+        await tx.payment.deleteMany({ where: { restaurantId: id } });
+        await tx.orderItem.deleteMany({ where: { restaurantId: id } });
+        await tx.order.deleteMany({ where: { restaurantId: id } });
+        await tx.cashSession.deleteMany({ where: { restaurantId: id } });
+        await tx.recipe.deleteMany({ where: { restaurantId: id } });
+        await tx.productOption.deleteMany({ where: { restaurantId: id } });
+        await tx.product.deleteMany({ where: { restaurantId: id } });
+        await tx.ingredient.deleteMany({ where: { restaurantId: id } });
+        await tx.qrCode.deleteMany({ where: { restaurantId: id } });
+        await tx.restaurantTable.deleteMany({ where: { restaurantId: id } });
+        await tx.category.deleteMany({ where: { restaurantId: id } });
+        await tx.auditLog.deleteMany({
+          where: { OR: [{ restaurantId: id }, { userId: { in: userIds } }] },
+        });
+        await tx.restaurantMembership.deleteMany({ where: { restaurantId: id } });
+        await tx.user.deleteMany({ where: { id: { in: userIds } } });
+        await tx.restaurant.delete({ where: { id } });
+      },
+      { timeout: 60_000, maxWait: 10_000 },
+    );
+
+    await audit({
+      userId: req.auth!.userId,
+      action: 'RESTAURANT_DELETED',
+      entity: 'Restaurant',
+      entityId: id,
+      details: { name: restaurant.name },
+    });
+    res.status(204).end();
+  }),
+);

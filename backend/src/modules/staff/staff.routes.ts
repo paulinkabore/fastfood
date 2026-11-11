@@ -162,3 +162,55 @@ staffRouter.patch(
     res.json({ ok: true });
   }),
 );
+
+// ---------- Suppression ----------
+// L'historique (commandes, encaissements, journal) garde le nom de l'employé : le compte est donc
+// retiré de l'équipe et rendu inutilisable, au lieu d'être effacé de la base
+staffRouter.delete(
+  '/staff/:userId',
+  ...canManage,
+  asyncHandler(async (req, res) => {
+    const restaurantId = rid(req);
+    const userId = String(req.params.userId);
+
+    const membership = await prisma.restaurantMembership.findUnique({
+      where: { userId_restaurantId: { userId, restaurantId } },
+      include: { user: { select: { email: true, fullName: true } } },
+    });
+    if (!membership) throw new AppError(404, 'NOT_FOUND', 'Employé introuvable');
+    if (membership.role === 'MANAGER') {
+      throw new AppError(403, 'FORBIDDEN', 'Les comptes gérants sont gérés par l’administration');
+    }
+
+    const openCash = await prisma.cashSession.count({
+      where: { restaurantId, openedById: userId, status: 'OPEN' },
+    });
+    if (openCash > 0) {
+      throw new AppError(409, 'CASH_OPEN', 'Cet employé a une caisse ouverte : elle doit être clôturée avant la suppression');
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.refreshToken.deleteMany({ where: { userId } });
+      await tx.restaurantMembership.delete({ where: { id: membership.id } });
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          isActive: false,
+          email: `supprime-${userId}@invalide.local`, // libère l'adresse email d'origine
+          passwordHash: '!', // aucun mot de passe ne peut plus correspondre
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          restaurantId,
+          userId: uid(req),
+          action: 'STAFF_DELETED',
+          entity: 'User',
+          entityId: userId,
+          details: { email: membership.user.email, name: membership.user.fullName, role: membership.role },
+        },
+      });
+    });
+    res.status(204).end();
+  }),
+);

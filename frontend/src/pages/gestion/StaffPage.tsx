@@ -22,6 +22,7 @@ function Staff({ restaurantId }: { restaurantId: string }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<StaffMember | null>(null);
   const [confirm, setConfirm] = useState<StaffMember | null>(null);
+  const [removing, setRemoving] = useState<StaffMember | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -62,6 +63,24 @@ function Staff({ restaurantId }: { restaurantId: string }) {
     } finally {
       setBusy(false);
       setConfirm(null);
+    }
+  };
+
+  const remove = async (m: StaffMember) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await authRequest(`${base}/staff/${m.userId}`, { method: 'DELETE' });
+      await load();
+      setMessage(`« ${m.fullName} » supprimé de l’équipe`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
+    } finally {
+      setBusy(false);
+      setRemoving(null);
     }
   };
 
@@ -169,6 +188,14 @@ function Staff({ restaurantId }: { restaurantId: string }) {
                               Réactiver
                             </button>
                           )}
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => setRemoving(m)}
+                            className="rounded-xl bg-red-600 px-3.5 py-2 text-sm font-semibold text-white transition active:scale-[0.97] disabled:opacity-50"
+                          >
+                            Supprimer
+                          </button>
                         </div>
                       )}
                     </li>
@@ -216,6 +243,18 @@ function Staff({ restaurantId }: { restaurantId: string }) {
           busy={busy}
           onConfirm={() => void setActive(confirm, false)}
           onClose={() => setConfirm(null)}
+        />
+      )}
+
+      {removing && (
+        <ConfirmSheet
+          title={`Supprimer « ${removing.fullName} » ?`}
+          text="Il sort de l’équipe et ne pourra plus se connecter. Son nom reste dans l’historique des commandes et des encaissements. Son adresse email pourra être réutilisée."
+          confirmLabel="Supprimer"
+          danger
+          busy={busy}
+          onConfirm={() => void remove(removing)}
+          onClose={() => setRemoving(null)}
         />
       )}
     </>

@@ -20,6 +20,7 @@ function Admin() {
   const [editing, setEditing] = useState<AdminRestaurant | 'new' | null>(null);
   const [managersOf, setManagersOf] = useState<{ id: string; name: string } | null>(null);
   const [confirm, setConfirm] = useState<AdminRestaurant | null>(null);
+  const [deleting, setDeleting] = useState<AdminRestaurant | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -53,6 +54,28 @@ function Admin() {
     } finally {
       setBusy(false);
       setConfirm(null);
+    }
+  };
+
+  const remove = async (r: AdminRestaurant) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await authRequest(`/admin/restaurants/${r.id}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ confirmName: r.name }),
+      });
+      setDeleting(null);
+      await load();
+      setMessage(`« ${r.name} » supprimé définitivement`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      setDeleting(null);
+      setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -171,6 +194,14 @@ function Admin() {
                     Réactiver
                   </button>
                 )}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setDeleting(r)}
+                  className="rounded-xl bg-red-600 px-3.5 py-2 text-sm font-semibold text-white transition active:scale-[0.97] disabled:opacity-50"
+                >
+                  Supprimer
+                </button>
               </div>
             </article>
           ))}
@@ -213,6 +244,19 @@ function Admin() {
           busy={busy}
           onConfirm={() => void setActive(confirm, false)}
           onClose={() => setConfirm(null)}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmSheet
+          title={`Supprimer « ${deleting.name} » ?`}
+          text="Suppression définitive : commandes, paiements, menu, stock, tables, QR codes et comptes du personnel sont effacés. Cette action est irréversible."
+          confirmLabel="Supprimer définitivement"
+          danger
+          busy={busy}
+          requireText={deleting.name}
+          onConfirm={() => void remove(deleting)}
+          onClose={() => setDeleting(null)}
         />
       )}
     </>
