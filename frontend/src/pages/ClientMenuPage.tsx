@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { api, ApiError } from '../lib/api';
-import { fcfa } from '../lib/format';
-import type { MenuProduct, PublicMenu } from '../lib/types';
-import { useCart } from '../features/order/useCart';
-import { ProductSheet } from '../components/ProductSheet';
-import { CartSheet } from '../components/CartSheet';
-import { BagIcon, PlusIcon } from '../components/icons';
+import { useCallback, useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { api, ApiError } from "../lib/api";
+import { fcfa } from "../lib/format";
+import type { PublicMenu } from "../lib/types";
+import { useCart } from "../features/order/useCart";
+import { CartSheet } from "../components/CartSheet";
+import { BagIcon, PlusIcon } from "../components/icons";
 
 function Thumb({ name, url }: { name: string; url: string | null }) {
   return url ? (
-    <img src={url} alt={name} loading="lazy" className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+    <img
+      src={url}
+      alt={name}
+      loading="lazy"
+      className="h-20 w-20 shrink-0 rounded-xl object-cover"
+    />
   ) : (
     <div className="grid h-20 w-20 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-100 to-brand-50 text-2xl font-semibold text-brand-600">
       {name.charAt(0).toUpperCase()}
@@ -49,8 +53,9 @@ function StateScreen({
 function ClientMenu({ token }: { token: string }) {
   const cart = useCart(token);
   const [data, setData] = useState<PublicMenu | null>(null);
-  const [error, setError] = useState<{ code: string; message: string } | null>(null);
-  const [selected, setSelected] = useState<MenuProduct | null>(null);
+  const [error, setError] = useState<{ code: string; message: string } | null>(
+    null,
+  );
   const [cartOpen, setCartOpen] = useState(false);
   const [activeCat, setActiveCat] = useState<string | null>(null);
 
@@ -66,7 +71,7 @@ function ClientMenu({ token }: { token: string }) {
         setError(
           e instanceof ApiError
             ? { code: e.code, message: e.message }
-            : { code: 'ERROR', message: 'Erreur inattendue' },
+            : { code: "ERROR", message: "Erreur inattendue" },
         ),
       );
   }, [token]);
@@ -82,10 +87,12 @@ function ClientMenu({ token }: { token: string }) {
       (entries) => {
         const top = entries
           .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (top) setActiveCat(top.target.id.replace('cat-', ''));
+          .sort(
+            (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
+          )[0];
+        if (top) setActiveCat(top.target.id.replace("cat-", ""));
       },
-      { rootMargin: '-140px 0px -65% 0px' },
+      { rootMargin: "-140px 0px -65% 0px" },
     );
     data.menu.forEach((c) => {
       const el = document.getElementById(`cat-${c.id}`);
@@ -98,18 +105,26 @@ function ClientMenu({ token }: { token: string }) {
     if (cart.count === 0) setCartOpen(false);
   }, [cart.count]);
 
+  const inCart = (productId: string) =>
+    cart.lines
+      .filter((l) => l.productId === productId)
+      .reduce((n, l) => n + l.quantity, 0);
+
   if (error) {
     const title =
-      error.code === 'NOT_FOUND'
-        ? 'QR code inconnu'
-        : error.code === 'QR_INACTIVE'
+      error.code === "NOT_FOUND"
+        ? "QR code inconnu"
+        : error.code === "QR_INACTIVE"
           ? "Ce QR code n'est plus actif"
-          : 'Menu indisponible';
+          : "Menu indisponible";
     const text =
-      error.code === 'NOT_FOUND' || error.code === 'QR_INACTIVE'
-        ? 'Demandez au personnel de vous indiquer le QR code à jour.'
+      error.code === "NOT_FOUND" || error.code === "QR_INACTIVE"
+        ? "Demandez au personnel de vous indiquer le QR code à jour."
         : error.message;
-    const retry = error.code === 'NOT_FOUND' || error.code === 'QR_INACTIVE' ? undefined : load;
+    const retry =
+      error.code === "NOT_FOUND" || error.code === "QR_INACTIVE"
+        ? undefined
+        : load;
     return <StateScreen title={title} text={text} onRetry={retry} />;
   }
 
@@ -118,7 +133,10 @@ function ClientMenu({ token }: { token: string }) {
       <main className="mx-auto max-w-3xl space-y-3 p-4">
         <div className="h-24 animate-pulse rounded-3xl bg-stone-200/70" />
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-28 animate-pulse rounded-2xl bg-stone-200/60" />
+          <div
+            key={i}
+            className="h-28 animate-pulse rounded-2xl bg-stone-200/60"
+          />
         ))}
       </main>
     );
@@ -128,9 +146,15 @@ function ClientMenu({ token }: { token: string }) {
     <div className="min-h-dvh pb-32">
       <header className="bg-gradient-to-b from-brand-50 to-stone-50 px-4 pb-5 pt-8">
         <div className="mx-auto max-w-3xl">
-          <h1 className="text-2xl font-semibold tracking-tight">{data.restaurant.name}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {data.restaurant.name}
+          </h1>
           <p className="mt-2 inline-flex items-center rounded-full bg-white px-3 py-1 text-sm font-medium text-stone-600 shadow-sm ring-1 ring-stone-200/70">
-            {data.table ? data.table.label : data.orderType === 'DELIVERY' ? 'Livraison' : 'À emporter'}
+            {data.table
+              ? data.table.label
+              : data.orderType === "DELIVERY"
+                ? "Livraison"
+                : "À emporter"}
           </p>
         </div>
       </header>
@@ -151,12 +175,12 @@ function ClientMenu({ token }: { token: string }) {
                     setActiveCat(c.id);
                     document
                       .getElementById(`cat-${c.id}`)
-                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
                   }}
                   className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
                     activeCat === c.id
-                      ? 'bg-stone-900 text-white'
-                      : 'bg-white text-stone-600 ring-1 ring-stone-200'
+                      ? "bg-stone-900 text-white"
+                      : "bg-white text-stone-600 ring-1 ring-stone-200"
                   }`}
                 >
                   {c.name}
@@ -168,14 +192,16 @@ function ClientMenu({ token }: { token: string }) {
           <main className="mx-auto max-w-3xl space-y-8 px-4 pt-6">
             {data.menu.map((c) => (
               <section key={c.id} id={`cat-${c.id}`} className="scroll-mt-20">
-                <h2 className="mb-3 text-lg font-semibold tracking-tight">{c.name}</h2>
+                <h2 className="mb-3 text-lg font-semibold tracking-tight">
+                  {c.name}
+                </h2>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {c.products.map((p) => (
                     <button
                       key={p.id}
                       type="button"
                       disabled={!p.isAvailable}
-                      onClick={() => setSelected(p)}
+                      onClick={() => cart.add(p, 1, [], undefined)} // un clic = ajouté au panier
                       className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-stone-200/70 transition hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Thumb name={p.name} url={p.imageUrl} />
@@ -186,11 +212,18 @@ function ClientMenu({ token }: { token: string }) {
                             {p.description}
                           </p>
                         )}
-                        <p className="mt-1.5 font-semibold">{fcfa(p.priceFcfa)}</p>
+                        <p className="mt-1.5 font-semibold">
+                          {fcfa(p.priceFcfa)}
+                        </p>
                       </div>
                       {p.isAvailable ? (
-                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-500 text-white shadow-sm shadow-brand-500/30">
+                        <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-500 text-white shadow-sm shadow-brand-500/30">
                           <PlusIcon />
+                          {inCart(p.id) > 0 && (
+                            <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-stone-900 px-1 text-[11px] font-bold text-white">
+                              {inCart(p.id)}
+                            </span>
+                          )}
                         </span>
                       ) : (
                         <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-500">
@@ -206,12 +239,13 @@ function ClientMenu({ token }: { token: string }) {
         </>
       )}
 
-      {cart.count > 0 && (
+      {
         <div className="fixed inset-x-0 bottom-0 z-40 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             onClick={() => setCartOpen(true)}
-            className="mx-auto flex w-full max-w-3xl items-center justify-between rounded-2xl bg-stone-900 px-5 py-4 text-white shadow-xl shadow-stone-900/25 transition active:scale-[0.99]"
+            disabled={cart.count === 0}
+            className="mx-auto flex w-full max-w-3xl items-center justify-between rounded-2xl bg-stone-900 px-5 py-4 text-white shadow-xl shadow-stone-900/25 transition active:scale-[0.99] disabled:bg-stone-400 disabled:shadow-none"
           >
             <span className="flex items-center gap-3">
               <span className="relative">
@@ -225,24 +259,13 @@ function ClientMenu({ token }: { token: string }) {
             <span className="font-semibold">{fcfa(cart.subtotal)}</span>
           </button>
         </div>
-      )}
-
-      {selected && (
-        <ProductSheet
-          product={selected}
-          onClose={() => setSelected(null)}
-          onAdd={(quantity, options, notes) => {
-            cart.add(selected, quantity, options, notes);
-            setSelected(null);
-          }}
-        />
-      )}
+      }
 
       {cartOpen && (
         <CartSheet
           token={token}
           cart={cart}
-          delivery={data.orderType === 'DELIVERY'}
+          delivery={data.orderType === "DELIVERY"}
           onClose={() => setCartOpen(false)}
         />
       )}
@@ -252,6 +275,6 @@ function ClientMenu({ token }: { token: string }) {
 
 // La clé force un panier propre si le client ouvre un autre QR code
 export default function ClientMenuPage() {
-  const { token = '' } = useParams();
+  const { token = "" } = useParams();
   return <ClientMenu key={token} token={token} />;
 }
