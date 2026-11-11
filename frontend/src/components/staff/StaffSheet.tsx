@@ -9,8 +9,6 @@ import { CheckIcon, CloseIcon } from '../icons';
 const field =
   'w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100';
 
-type Revealed = { email: string; password: string; role: StaffRole };
-
 export function StaffSheet({
   restaurantId,
   onClose,
@@ -18,7 +16,7 @@ export function StaffSheet({
 }: {
   restaurantId: string;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (name: string, role: StaffRole) => void;
 }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -27,8 +25,6 @@ export function StaffSheet({
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [revealed, setRevealed] = useState<Revealed | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const create = async () => {
     if (busy) return;
@@ -46,26 +42,14 @@ export function StaffSheet({
         method: 'POST',
         body: JSON.stringify({ email: mail, fullName: fullName.trim(), role, password }),
       });
-      setRevealed({ email: mail, password, role });
-      setCopied(false);
-      setFullName('');
-      setEmail('');
-      setPassword('');
-      setShowPw(false);
-      onCreated();
+      // Succès : la boîte se ferme et la page affiche la notification
+      onCreated(fullName.trim(), role);
+      onClose();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
     } finally {
       setBusy(false);
     }
-  };
-
-  const copy = () => {
-    if (!revealed) return;
-    void navigator.clipboard
-      .writeText(`Email : ${revealed.email}\nMot de passe : ${revealed.password}`)
-      .then(() => setCopied(true))
-      .catch(() => setError('Copie impossible : notez les identifiants à la main'));
   };
 
   return (
@@ -83,43 +67,6 @@ export function StaffSheet({
       </div>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-        {revealed && (
-          <div className="space-y-2 rounded-3xl bg-amber-50 p-4">
-            <p className="font-semibold text-amber-900">Compte créé</p>
-            <p className="text-sm text-amber-800">
-              Donnez ces identifiants à l’employé. Il arrivera sur l’écran{' '}
-              <span className="font-semibold">{ROLE_INFO[revealed.role].screen}</span>.{' '}
-              <span className="font-semibold">Le mot de passe n’est affiché qu’une seule fois.</span>
-            </p>
-            <div className="rounded-2xl bg-white px-4 py-3 text-sm">
-              <p>
-                <span className="text-stone-500">Email : </span>
-                <span className="font-medium">{revealed.email}</span>
-              </p>
-              <p className="mt-1">
-                <span className="text-stone-500">Mot de passe : </span>
-                <span className="font-mono text-base font-semibold">{revealed.password}</span>
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={copy}
-                className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white"
-              >
-                {copied ? 'Copié' : 'Copier les identifiants'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setRevealed(null)}
-                className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-stone-600"
-              >
-                C’est noté, masquer
-              </button>
-            </div>
-          </div>
-        )}
-
         <div>
           <p className="mb-2 text-sm font-semibold text-stone-700">Rôle</p>
           <div className="space-y-2">

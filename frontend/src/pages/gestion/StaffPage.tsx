@@ -38,6 +38,13 @@ function Staff({ restaurantId }: { restaurantId: string }) {
     void load();
   }, [load]);
 
+  // La notification disparaît d'elle-même
+  useEffect(() => {
+    if (!message) return;
+    const t = window.setTimeout(() => setMessage(null), 6000);
+    return () => window.clearTimeout(t);
+  }, [message]);
+
   const setActive = async (m: StaffMember, isActive: boolean) => {
     if (busy) return;
     setBusy(true);
@@ -177,8 +184,10 @@ function Staff({ restaurantId }: { restaurantId: string }) {
         <StaffSheet
           restaurantId={restaurantId}
           onClose={() => setCreating(false)}
-          onCreated={() => {
-            setMessage('Compte créé');
+          onCreated={(name, role) => {
+            setError(null);
+            setMessage(`Compte créé : « ${name} » (${ROLE_INFO[role].label.toLowerCase()})`);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             void load();
           }}
         />
