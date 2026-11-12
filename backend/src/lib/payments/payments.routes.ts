@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import { rateLimitHandler } from './security';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { env } from '../../config/env';
@@ -18,9 +19,7 @@ const clientLimiter = rateLimit({
   limit: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    error: { code: 'TOO_MANY_REQUESTS', message: 'Trop de tentatives, réessayez dans quelques minutes' },
-  },
+  handler: rateLimitHandler('TOO_MANY_REQUESTS', 'Trop de tentatives, réessayez dans quelques minutes'),
 });
 
 const uuid = z.string().uuid();
@@ -139,7 +138,7 @@ webhooksRouter.use(
     limit: 300,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: { code: 'TOO_MANY_REQUESTS', message: 'Trop de requêtes' } },
+    handler: rateLimitHandler('TOO_MANY_REQUESTS', 'Trop de requêtes'),
   }),
 );
 

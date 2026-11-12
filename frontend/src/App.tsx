@@ -10,6 +10,7 @@ import TablesPage from './pages/gestion/TablesPage';
 import DeliveryPage from './pages/gestion/DeliveryPage';
 import AnnouncePage from './pages/AnnouncePage';
 import AdminPage from './pages/admin/AdminPage';
+import SecurityPage from './pages/admin/SecurityPage';
 import OrdersPage from './pages/gestion/OrdersPage';
 import MenuPage from './pages/gestion/MenuPage';
 import StockPage from './pages/gestion/StockPage';
@@ -42,6 +43,7 @@ export default function App() {
       <Route path="/gestion/livraison" element={<DeliveryPage />} />
       <Route path="/annonces" element={<AnnouncePage />} />
       <Route path="/admin" element={<AdminPage />} />
+      <Route path="/admin/securite" element={<SecurityPage />} />
       <Route path="/gestion/commandes" element={<OrdersPage />} />
       <Route path="/gestion/menu" element={<MenuPage />} />
       <Route path="/gestion/stock" element={<StockPage />} />

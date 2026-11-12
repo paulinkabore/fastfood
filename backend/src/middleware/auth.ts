@@ -3,6 +3,7 @@ import type { MemberRole } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { verifyAccessToken } from '../lib/tokens';
+import { securityEvent } from '../lib/security';
 
 // 1. L'utilisateur est-il connecté ?
 export const authenticate: RequestHandler = (req, _res, next) => {
@@ -22,6 +23,7 @@ export const authenticate: RequestHandler = (req, _res, next) => {
 // 2. Est-il super-administrateur ?
 export const requireSuperAdmin: RequestHandler = (req, _res, next) => {
   if (req.auth?.globalRole !== 'SUPER_ADMIN') {
+    securityEvent(req, 'ACCESS_DENIED', { userId: req.auth?.userId ?? null, reason: 'zone administrateur' });
     return next(new AppError(403, 'FORBIDDEN', 'Accès réservé au super-administrateur'));
   }
   next();
@@ -47,6 +49,7 @@ export const requireRestaurantRole =
         !membership.restaurant.isActive ||
         !roles.includes(membership.role)
       ) {
+        securityEvent(req, 'ACCESS_DENIED', { userId: req.auth!.userId, reason: 'restaurant ou rôle non autorisé' });
         throw new AppError(403, 'FORBIDDEN', 'Accès refusé pour ce restaurant');
       }
       req.membership = { restaurantId, role: membership.role };

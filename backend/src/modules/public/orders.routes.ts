@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import { rateLimitHandler } from '../../lib/security';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../lib/errors';
@@ -16,9 +17,7 @@ const orderLimiter = rateLimit({
   limit: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    error: { code: 'TOO_MANY_REQUESTS', message: 'Trop de commandes, réessayez dans quelques minutes' },
-  },
+  handler: rateLimitHandler('TOO_MANY_REQUESTS', 'Trop de commandes, réessayez dans quelques minutes'),
 });
 
 const trackingLimiter = rateLimit({
@@ -26,9 +25,7 @@ const trackingLimiter = rateLimit({
   limit: 600,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    error: { code: 'TOO_MANY_REQUESTS', message: 'Trop de requêtes, réessayez dans une minute' },
-  },
+  handler: rateLimitHandler('TOO_MANY_REQUESTS', 'Trop de requêtes, réessayez dans une minute'),
 });
 
 // Livraison : le client laisse son nom et son téléphone pour que le livreur le joigne

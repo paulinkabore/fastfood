@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ManagersSheet } from '../../components/admin/ManagersSheet';
 import { RestaurantSheet } from '../../components/admin/RestaurantSheet';
 import { AdminLayout } from '../../components/AdminLayout';
@@ -119,14 +120,22 @@ function Admin() {
             {loading ? '…' : `${activeCount} actif${activeCount > 1 ? 's' : ''} sur ${restaurants.length}`}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setEditing('new')}
-          className="flex items-center gap-1.5 rounded-2xl bg-brand-500 px-5 py-3 font-semibold text-white shadow-md shadow-brand-500/30 transition active:scale-[0.97]"
-        >
-          <PlusIcon className="h-4 w-4" />
-          Nouveau restaurant
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to="/admin/securite"
+            className="rounded-2xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.97]"
+          >
+            Sécurité
+          </Link>
+          <button
+            type="button"
+            onClick={() => setEditing('new')}
+            className="flex items-center gap-1.5 rounded-2xl bg-brand-500 px-5 py-3 font-semibold text-white shadow-md shadow-brand-500/30 transition active:scale-[0.97]"
+          >
+            <PlusIcon className="h-4 w-4" />
+            Nouveau restaurant
+          </button>
+        </div>
       </section>
 
       {loading ? (

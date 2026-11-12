@@ -197,6 +197,43 @@ adminRouter.patch(
   }),
 );
 
+// ---------- Journal de sécurité : tentatives d'intrusion ----------
+adminRouter.get(
+  '/security',
+  asyncHandler(async (req, res) => {
+    const hours = Math.min(Math.max(Number(req.query.hours) || 24, 1), 720);
+    const since = new Date(Date.now() - hours * 3_600_000);
+    const logs = await prisma.auditLog.findMany({
+      where: { createdAt: { gte: since }, OR: [{ entity: 'Security' }, { action: 'ACCOUNT_LOCKED' }] },
+      orderBy: { createdAt: 'desc' },
+      take: 1000,
+      select: { id: true, action: true, details: true, createdAt: true },
+    });
+    const counts: Record<string, number> = {};
+    const byIp = new Map<string, number>();
+    const events = logs.map((l) => {
+      const d = (l.details ?? {}) as Record<string, unknown>;
+      counts[l.action] = (counts[l.action] ?? 0) + 1;
+      const ip = typeof d.ip === 'string' ? d.ip : null;
+      if (ip) byIp.set(ip, (byIp.get(ip) ?? 0) + 1);
+      return {
+        id: l.id,
+        action: l.action,
+        createdAt: l.createdAt,
+        ip,
+        email: typeof d.email === 'string' ? d.email : null,
+        path: typeof d.path === 'string' ? d.path : null,
+        reason: typeof d.reason === 'string' ? d.reason : null,
+      };
+    });
+    const topIps = [...byIp.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([ip, count]) => ({ ip, count }));
+    res.json({ hours, counts, topIps, events: events.slice(0, 200) });
+  }),
+);
+
 // ---------- Remise à zéro des données d'UN restaurant ----------
 // Efface commandes, paiements, caisses, menu, stock, tables, historique et comptes du personnel de CE restaurant.
 // Restent : le restaurant, ses gérants et les super-admins. Le nom exact doit être répété.

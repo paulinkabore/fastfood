@@ -2,6 +2,7 @@ import { Router, type Response } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
+import { rateLimitHandler, securityEvent } from '../../lib/security';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../lib/errors';
@@ -34,9 +35,7 @@ const loginLimiter = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    error: { code: 'TOO_MANY_ATTEMPTS', message: 'Trop de tentatives, réessayez plus tard' },
-  },
+  handler: rateLimitHandler('TOO_MANY_ATTEMPTS', 'Trop de tentatives, réessayez plus tard'),
 });
 
 async function issueSession(userId: string, role: 'SUPER_ADMIN' | 'USER', res: Response) {
@@ -74,6 +73,7 @@ authRouter.post(
 
     // Compte bloqué après trop d'échecs : même un bon mot de passe est refusé jusqu'à la fin du délai
     if (user?.lockedUntil && user.lockedUntil > new Date()) {
+      securityEvent(req, 'LOGIN_BLOCKED', { email: user.email });
       const minutes = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60_000);
       throw new AppError(
         429,
@@ -86,6 +86,7 @@ authRouter.post(
     const valid =
       (await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH)) && Boolean(user?.isActive);
     if (!user || !valid) {
+      securityEvent(req, 'LOGIN_FAILED', { email: email.toLowerCase().slice(0, 80), knownAccount: user ? 1 : 0 });
       if (user) {
         const failed = user.failedLogins + 1;
         const lock = failed >= MAX_FAILED_LOGINS;

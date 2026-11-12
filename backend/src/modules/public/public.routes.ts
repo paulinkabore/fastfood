@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import { rateLimitHandler } from '../../lib/security';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../lib/errors';
 import { asyncHandler } from '../../lib/asyncHandler';
@@ -26,9 +27,7 @@ publicRouter.use(
     limit: 120,
     standardHeaders: true,
     legacyHeaders: false,
-    message: {
-      error: { code: 'TOO_MANY_REQUESTS', message: 'Trop de requêtes, réessayez dans une minute' },
-    },
+    handler: rateLimitHandler('TOO_MANY_REQUESTS', 'Trop de requêtes, réessayez dans une minute'),
   }),
 );
 
