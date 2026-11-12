@@ -6,9 +6,8 @@ import { RequireRole } from '../components/RequireRole';
 import { StaffLayout } from '../components/StaffLayout';
 import { ApiError } from '../lib/api';
 import { authRequest, useAuth } from '../lib/auth';
-import { TicketWatermark } from '../components/TicketWatermark';
+import { Row, Sep, TicketHeader, dateFr, ticketFont, timeShort } from '../components/TicketParts';
 import { printTicket } from '../lib/print';
-import { BRAND_NAME, showRestaurantName } from '../lib/brand';
 import { beep, readyAnnouncement, speak, speechAvailable, unlockAudio } from '../lib/sound';
 import { useKitchen } from '../features/kitchen/useKitchen';
 import type { OrderStatus, OrderView } from '../lib/types';
@@ -286,31 +285,32 @@ function Kitchen({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
 
       {ticket &&
         createPortal(
-          <div className="print-receipt" style={{ fontFamily: 'monospace', fontSize: '14px' }}>
-            <TicketWatermark />
-            <p style={{ textAlign: 'center', fontWeight: 700 }}>{BRAND_NAME}</p>
-            {showRestaurantName(ticket.restaurantName) && <p style={{ textAlign: 'center' }}>{ticket.restaurantName}</p>}
-            <p style={{ textAlign: 'center', fontSize: '28px', fontWeight: 700 }}>#{ticket.number}</p>
-            <p style={{ textAlign: 'center', fontSize: '18px', fontWeight: 700 }}>{placeLabel(ticket)}</p>
-            <p style={{ textAlign: 'center' }}>
-              {new Date(ticket.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-            </p>
-            <hr />
+          <div className="print-receipt" style={ticketFont}>
+            <TicketHeader title="BON DE PRÉPARATION" restaurantName={ticket.restaurantName} />
+            <p style={{ textAlign: 'center', fontSize: '30px', fontWeight: 700, margin: 0 }}>#{ticket.number}</p>
+            <p style={{ textAlign: 'center', fontSize: '16px', fontWeight: 700, margin: 0 }}>{placeLabel(ticket)}</p>
+            {ticket.customerName && <p style={{ textAlign: 'center', margin: 0 }}>Client : {ticket.customerName}</p>}
+            <Sep />
+            <Row left="Date" right={dateFr(ticket.createdAt)} />
+            <Row left="Heure" right={timeShort(ticket.createdAt)} />
+            <Sep />
             {ticket.items.map((i, idx) => (
-              <div key={idx} style={{ margin: '6px 0' }}>
+              <div key={idx} style={{ margin: '5px 0', fontSize: '14px' }}>
                 <strong>
                   {i.quantity} x {i.productName}
                 </strong>
-                {i.options.length > 0 && <div>+ {i.options.join(', ')}</div>}
-                {i.notes && <div>Note : {i.notes}</div>}
+                {i.options.length > 0 && <div style={{ fontSize: '12px' }}>+ {i.options.join(', ')}</div>}
+                {i.notes && <div style={{ fontSize: '12px' }}>Note : {i.notes}</div>}
               </div>
             ))}
             {ticket.notes && (
               <>
-                <hr />
+                <Sep />
                 <div>Note : {ticket.notes}</div>
               </>
             )}
+            <Sep double />
+            <Row left="Articles" right={ticket.items.reduce((n, i) => n + i.quantity, 0)} bold />
           </div>,
           document.body,
         )}

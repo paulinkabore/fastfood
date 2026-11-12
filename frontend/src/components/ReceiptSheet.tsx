@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api, ApiError } from '../lib/api';
-import { TicketWatermark } from './TicketWatermark';
+import { Row, Sep, TicketFooter, TicketHeader, TicketItems, dateFr, ticketFont, timeShort } from './TicketParts';
 import { printTicket } from '../lib/print';
-import { BRAND_NAME, showRestaurantName } from '../lib/brand';
 import { authRequest } from '../lib/auth';
-import { dateTimeFr, fcfa } from '../lib/format';
+import { fcfa } from '../lib/format';
 import type { ReceiptView } from '../lib/types';
 import { Sheet } from './Sheet';
 import { CloseIcon } from './icons';
@@ -13,52 +12,26 @@ import { placeLabel } from '../lib/orderPlace';
 
 function ReceiptBody({ r }: { r: ReceiptView }) {
   return (
-    <div className="relative isolate mx-auto w-full max-w-[80mm] overflow-hidden text-sm text-stone-900">
-      <div className="text-center">
-        <TicketWatermark />
-        <p className="text-base font-semibold">{BRAND_NAME}</p>
-        {showRestaurantName(r.restaurantName) && <p className="text-sm">{r.restaurantName}</p>}
-        <p className="mt-1 text-xs text-stone-500">
-          Reçu n° {r.receiptNumber ?? '-'} · {dateTimeFr(r.issuedAt)}
-        </p>
-        <p className="text-xs text-stone-500">
-          Commande #{r.orderNumber} ·{' '}
-          {placeLabel({ tableLabel: r.tableLabel, type: r.orderType })}
-        </p>
-      </div>
-
-      <ul className="my-3 space-y-1.5 border-y border-dashed border-stone-300 py-3">
-        {r.items.map((i, k) => (
-          <li key={k} className="flex justify-between gap-3">
-            <span>
-              {i.quantity} × {i.productName}
-              {i.options.length > 0 && (
-                <span className="block text-xs text-stone-500">+ {i.options.join(', ')}</span>
-              )}
-            </span>
-            <span className="shrink-0 tabular-nums">{fcfa(i.lineTotalFcfa)}</span>
-          </li>
-        ))}
-      </ul>
-
-      <p className="flex justify-between text-base font-semibold">
-        <span>Total</span>
-        <span>{fcfa(r.totalFcfa)}</span>
-      </p>
-      <p className="mt-2 flex justify-between text-xs text-stone-500">
-        <span>Paiement</span>
-        <span>{r.method === 'CASH' ? 'Espèces' : 'Mobile Money'}</span>
-      </p>
-      {r.cashierName && (
-        <p className="flex justify-between text-xs text-stone-500">
-          <span>Caissier</span>
-          <span>{r.cashierName}</span>
-        </p>
-      )}
+    <div
+      className="relative isolate mx-auto w-full max-w-[80mm] overflow-hidden"
+      style={ticketFont}
+    >
+      <TicketHeader title="REÇU DE PAIEMENT" restaurantName={r.restaurantName} />
+      <Row left="Reçu n°" right={r.receiptNumber ?? '-'} bold size="14px" />
+      <Row left="Commande" right={`#${r.orderNumber}`} />
+      <Row left="Date" right={dateFr(r.issuedAt)} />
+      <Row left="Heure" right={timeShort(r.issuedAt)} />
+      <Row left="Service" right={placeLabel({ tableLabel: r.tableLabel, type: r.orderType })} />
+      {r.cashierName && <Row left="Caissier" right={r.cashierName} />}
+      <Sep />
+      <TicketItems items={r.items} />
+      <Sep double />
+      <Row left="TOTAL PAYÉ" right={fcfa(r.totalFcfa)} bold size="16px" />
+      <Row left="Mode de paiement" right={r.method === 'CASH' ? 'Espèces' : 'Mobile Money'} />
       {r.status === 'REFUNDED' && (
-        <p className="mt-3 text-center font-semibold">REMBOURSÉ</p>
+        <p style={{ textAlign: 'center', fontWeight: 700, margin: '6px 0 0' }}>*** REMBOURSÉ ***</p>
       )}
-      <p className="mt-4 text-center text-xs text-stone-500">Merci de votre visite</p>
+      <TicketFooter lines={['Merci de votre visite', 'À bientôt !', 'Conservez ce reçu']} />
     </div>
   );
 }
