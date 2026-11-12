@@ -197,62 +197,75 @@ adminRouter.patch(
   }),
 );
 
-// ---------- Remise à zéro des données ----------
-// Efface les données d'activité de TOUS les restaurants (commandes, paiements, caisses, menu, stock,
-// tables, historique) et les comptes du personnel. Restent : les restaurants, les super-admins et les gérants.
+// ---------- Remise à zéro des données d'UN restaurant ----------
+// Efface commandes, paiements, caisses, menu, stock, tables, historique et comptes du personnel de CE restaurant.
+// Restent : le restaurant, ses gérants et les super-admins. Le nom exact doit être répété.
 adminRouter.post(
-  '/reset-data',
+  '/restaurants/:id/reset-data',
   asyncHandler(async (req, res) => {
-    const { confirmText, password: adminPassword } = z
-      .object({ confirmText: z.string(), password: z.string().min(1) })
+    const id = String(req.params.id);
+    const restaurant = await getRestaurant(id);
+    const { confirmName, password: adminPassword } = z
+      .object({ confirmName: z.string(), password: z.string().min(1) })
       .parse(req.body ?? {});
     const me = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
     if (!me || !(await bcrypt.compare(adminPassword, me.passwordHash))) {
       throw new AppError(403, 'WRONG_PASSWORD', 'Mot de passe incorrect');
     }
-    if (confirmText.trim() !== 'EFFACER') {
-      throw new AppError(400, 'CONFIRMATION_MISMATCH', 'Tapez EFFACER pour confirmer');
+    if (confirmName.trim() !== restaurant.name) {
+      throw new AppError(400, 'CONFIRMATION_MISMATCH', 'Le nom saisi ne correspond pas au restaurant');
     }
 
     await prisma.$transaction(
       async (tx) => {
-        // Comptes à conserver : super-admins et tous les gérants
-        const managers = await tx.restaurantMembership.findMany({
-          where: { role: 'MANAGER' },
+        // Personnel de ce restaurant (hors gérants), jamais un super-admin ni un compte utilisé ailleurs
+        const staff = await tx.restaurantMembership.findMany({
+          where: { restaurantId: id, role: { not: 'MANAGER' } },
           select: { userId: true },
         });
-        const keepIds = new Set(managers.map((m) => m.userId));
-        const supers = await tx.user.findMany({ where: { globalRole: { not: 'USER' } }, select: { id: true } });
-        supers.forEach((u) => keepIds.add(u.id));
-        const keep = [...keepIds];
+        const candidateIds = [...new Set(staff.map((m) => m.userId))];
+        const elsewhere = await tx.restaurantMembership.findMany({
+          where: {
+            userId: { in: candidateIds },
+            OR: [{ restaurantId: { not: id } }, { restaurantId: id, role: 'MANAGER' }],
+          },
+          select: { userId: true },
+        });
+        const kept = new Set(elsewhere.map((m) => m.userId));
+        const owned = await tx.user.findMany({
+          where: { id: { in: candidateIds.filter((u) => !kept.has(u)) }, globalRole: 'USER' },
+          select: { id: true },
+        });
+        const userIds = owned.map((u) => u.id);
 
-        const staff = await tx.user.findMany({ where: { id: { notIn: keep } }, select: { id: true } });
-        const staffIds = staff.map((u) => u.id);
-
-        // Dans l'ordre des dépendances
-        await tx.refreshToken.deleteMany({ where: { userId: { in: staffIds } } });
-        await tx.stockMovement.deleteMany({});
-        await tx.payment.deleteMany({});
-        await tx.paymentEvent.deleteMany({});
-        await tx.orderItem.deleteMany({});
-        await tx.order.deleteMany({});
-        await tx.cashSession.deleteMany({});
-        await tx.recipe.deleteMany({});
-        await tx.productOption.deleteMany({});
-        await tx.product.deleteMany({});
-        await tx.ingredient.deleteMany({});
-        await tx.qrCode.deleteMany({});
-        await tx.restaurantTable.deleteMany({});
-        await tx.category.deleteMany({});
-        await tx.auditLog.deleteMany({});
-        await tx.restaurantMembership.deleteMany({ where: { userId: { in: staffIds } } });
-        await tx.restaurantMembership.deleteMany({ where: { role: { not: 'MANAGER' } } });
-        await tx.user.deleteMany({ where: { id: { in: staffIds } } });
+        await tx.refreshToken.deleteMany({ where: { userId: { in: userIds } } });
+        await tx.stockMovement.deleteMany({ where: { restaurantId: id } });
+        await tx.payment.deleteMany({ where: { restaurantId: id } });
+        await tx.orderItem.deleteMany({ where: { restaurantId: id } });
+        await tx.order.deleteMany({ where: { restaurantId: id } });
+        await tx.cashSession.deleteMany({ where: { restaurantId: id } });
+        await tx.recipe.deleteMany({ where: { restaurantId: id } });
+        await tx.productOption.deleteMany({ where: { restaurantId: id } });
+        await tx.product.deleteMany({ where: { restaurantId: id } });
+        await tx.ingredient.deleteMany({ where: { restaurantId: id } });
+        await tx.qrCode.deleteMany({ where: { restaurantId: id } });
+        await tx.restaurantTable.deleteMany({ where: { restaurantId: id } });
+        await tx.category.deleteMany({ where: { restaurantId: id } });
+        await tx.auditLog.deleteMany({ where: { OR: [{ restaurantId: id }, { userId: { in: userIds } }] } });
+        await tx.restaurantMembership.deleteMany({ where: { restaurantId: id, role: { not: 'MANAGER' } } });
+        await tx.user.deleteMany({ where: { id: { in: userIds } } });
       },
       { timeout: 60_000, maxWait: 10_000 },
     );
 
-    await audit({ userId: req.auth!.userId, action: 'DATA_RESET', entity: 'System' });
+    await audit({
+      userId: req.auth!.userId,
+      restaurantId: id,
+      action: 'DATA_RESET',
+      entity: 'Restaurant',
+      entityId: id,
+      details: { name: restaurant.name },
+    });
     res.json({ ok: true });
   }),
 );

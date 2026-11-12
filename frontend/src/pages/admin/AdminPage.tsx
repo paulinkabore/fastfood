@@ -21,7 +21,7 @@ function Admin() {
   const [managersOf, setManagersOf] = useState<{ id: string; name: string } | null>(null);
   const [confirm, setConfirm] = useState<AdminRestaurant | null>(null);
   const [deleting, setDeleting] = useState<AdminRestaurant | null>(null);
-  const [resetting, setResetting] = useState(false);
+  const [resetting, setResetting] = useState<AdminRestaurant | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -80,22 +80,22 @@ function Admin() {
     }
   };
 
-  const resetData = async (password: string) => {
+  const resetData = async (r: AdminRestaurant, password: string) => {
     if (busy) return;
     setBusy(true);
     setError(null);
     setMessage(null);
     try {
-      await authRequest('/admin/reset-data', {
+      await authRequest(`/admin/restaurants/${r.id}/reset-data`, {
         method: 'POST',
-        body: JSON.stringify({ confirmText: 'EFFACER', password }),
+        body: JSON.stringify({ confirmName: r.name, password }),
       });
-      setMessage('Données effacées : restaurants, super admin et gérants conservés');
+      setMessage(`Données de « ${r.name} » effacées : le restaurant et ses gérants sont conservés`);
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
     } finally {
-      setResetting(false);
+      setResetting(null);
       setBusy(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -119,23 +119,14 @@ function Admin() {
             {loading ? '…' : `${activeCount} actif${activeCount > 1 ? 's' : ''} sur ${restaurants.length}`}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setResetting(true)}
-            className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition active:scale-[0.97]"
-          >
-            Réinitialiser les données
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditing('new')}
-            className="flex items-center gap-1.5 rounded-2xl bg-brand-500 px-5 py-3 font-semibold text-white shadow-md shadow-brand-500/30 transition active:scale-[0.97]"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Nouveau restaurant
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setEditing('new')}
+          className="flex items-center gap-1.5 rounded-2xl bg-brand-500 px-5 py-3 font-semibold text-white shadow-md shadow-brand-500/30 transition active:scale-[0.97]"
+        >
+          <PlusIcon className="h-4 w-4" />
+          Nouveau restaurant
+        </button>
       </section>
 
       {loading ? (
@@ -228,6 +219,14 @@ function Admin() {
                 <button
                   type="button"
                   disabled={busy}
+                  onClick={() => setResetting(r)}
+                  className="rounded-xl bg-amber-50 px-3.5 py-2 text-sm font-medium text-amber-800 transition active:scale-[0.97] disabled:opacity-50"
+                >
+                  Effacer les données
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
                   onClick={() => setDeleting(r)}
                   className="rounded-xl bg-red-600 px-3.5 py-2 text-sm font-semibold text-white transition active:scale-[0.97] disabled:opacity-50"
                 >
@@ -280,15 +279,15 @@ function Admin() {
 
       {resetting && (
         <ConfirmSheet
-          title="Réinitialiser toutes les données ?"
-          text="Sont effacés : commandes, paiements, caisses, menu, produits, stock, tables, QR codes, historique et comptes des caissiers, cuisiniers et serveurs. Sont conservés : les restaurants, le super admin et les gérants. Action irréversible."
-          confirmLabel="Tout effacer"
+          title={`Effacer les données de « ${resetting.name} » ?`}
+          text="Sont effacés : commandes, paiements, caisses, menu, produits, stock, tables, QR codes, historique et comptes des caissiers, cuisiniers et serveurs. Sont conservés : le restaurant et ses gérants. Action irréversible."
+          confirmLabel="Effacer les données"
           danger
           busy={busy}
-          requireText="EFFACER"
+          requireText={resetting.name}
           requirePassword
-          onConfirm={(password) => void resetData(password)}
-          onClose={() => setResetting(false)}
+          onConfirm={(password) => void resetData(resetting, password)}
+          onClose={() => setResetting(null)}
         />
       )}
 
