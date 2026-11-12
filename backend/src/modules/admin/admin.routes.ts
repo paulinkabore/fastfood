@@ -197,6 +197,66 @@ adminRouter.patch(
   }),
 );
 
+// ---------- Remise à zéro des données ----------
+// Efface les données d'activité de TOUS les restaurants (commandes, paiements, caisses, menu, stock,
+// tables, historique) et les comptes du personnel. Restent : les restaurants, les super-admins et les gérants.
+adminRouter.post(
+  '/reset-data',
+  asyncHandler(async (req, res) => {
+    const { confirmText, password: adminPassword } = z
+      .object({ confirmText: z.string(), password: z.string().min(1) })
+      .parse(req.body ?? {});
+    const me = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+    if (!me || !(await bcrypt.compare(adminPassword, me.passwordHash))) {
+      throw new AppError(403, 'WRONG_PASSWORD', 'Mot de passe incorrect');
+    }
+    if (confirmText.trim() !== 'EFFACER') {
+      throw new AppError(400, 'CONFIRMATION_MISMATCH', 'Tapez EFFACER pour confirmer');
+    }
+
+    await prisma.$transaction(
+      async (tx) => {
+        // Comptes à conserver : super-admins et tous les gérants
+        const managers = await tx.restaurantMembership.findMany({
+          where: { role: 'MANAGER' },
+          select: { userId: true },
+        });
+        const keepIds = new Set(managers.map((m) => m.userId));
+        const supers = await tx.user.findMany({ where: { globalRole: { not: 'USER' } }, select: { id: true } });
+        supers.forEach((u) => keepIds.add(u.id));
+        const keep = [...keepIds];
+
+        const staff = await tx.user.findMany({ where: { id: { notIn: keep } }, select: { id: true } });
+        const staffIds = staff.map((u) => u.id);
+
+        // Dans l'ordre des dépendances
+        await tx.refreshToken.deleteMany({ where: { userId: { in: staffIds } } });
+        await tx.stockMovement.deleteMany({});
+        await tx.payment.deleteMany({});
+        await tx.paymentEvent.deleteMany({});
+        await tx.orderItem.deleteMany({});
+        await tx.order.deleteMany({});
+        await tx.cashSession.deleteMany({});
+        await tx.recipe.deleteMany({});
+        await tx.productOption.deleteMany({});
+        await tx.product.deleteMany({});
+        await tx.ingredient.deleteMany({});
+        await tx.qrCode.deleteMany({});
+        await tx.restaurantTable.deleteMany({});
+        await tx.category.deleteMany({});
+        await tx.auditLog.deleteMany({});
+        await tx.restaurantMembership.deleteMany({ where: { userId: { in: staffIds } } });
+        await tx.restaurantMembership.deleteMany({ where: { role: { not: 'MANAGER' } } });
+        await tx.user.deleteMany({ where: { id: { in: staffIds } } });
+      },
+      { timeout: 60_000, maxWait: 10_000 },
+    );
+
+    await audit({ userId: req.auth!.userId, action: 'DATA_RESET', entity: 'System' });
+    res.json({ ok: true });
+  }),
+);
+
 // ---------- Suppression définitive d'un restaurant ----------
 // Efface TOUTES ses données. Le nom exact doit être répété pour confirmer.
 adminRouter.delete(

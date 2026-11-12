@@ -21,6 +21,7 @@ function Admin() {
   const [managersOf, setManagersOf] = useState<{ id: string; name: string } | null>(null);
   const [confirm, setConfirm] = useState<AdminRestaurant | null>(null);
   const [deleting, setDeleting] = useState<AdminRestaurant | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -79,6 +80,27 @@ function Admin() {
     }
   };
 
+  const resetData = async (password: string) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await authRequest('/admin/reset-data', {
+        method: 'POST',
+        body: JSON.stringify({ confirmText: 'EFFACER', password }),
+      });
+      setMessage('Données effacées : restaurants, super admin et gérants conservés');
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
+    } finally {
+      setResetting(false);
+      setBusy(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const activeCount = restaurants.filter((r) => r.isActive).length;
 
   return (
@@ -97,14 +119,23 @@ function Admin() {
             {loading ? '…' : `${activeCount} actif${activeCount > 1 ? 's' : ''} sur ${restaurants.length}`}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setEditing('new')}
-          className="flex items-center gap-1.5 rounded-2xl bg-brand-500 px-5 py-3 font-semibold text-white shadow-md shadow-brand-500/30 transition active:scale-[0.97]"
-        >
-          <PlusIcon className="h-4 w-4" />
-          Nouveau restaurant
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setResetting(true)}
+            className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition active:scale-[0.97]"
+          >
+            Réinitialiser les données
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing('new')}
+            className="flex items-center gap-1.5 rounded-2xl bg-brand-500 px-5 py-3 font-semibold text-white shadow-md shadow-brand-500/30 transition active:scale-[0.97]"
+          >
+            <PlusIcon className="h-4 w-4" />
+            Nouveau restaurant
+          </button>
+        </div>
       </section>
 
       {loading ? (
@@ -244,6 +275,20 @@ function Admin() {
           busy={busy}
           onConfirm={() => void setActive(confirm, false)}
           onClose={() => setConfirm(null)}
+        />
+      )}
+
+      {resetting && (
+        <ConfirmSheet
+          title="Réinitialiser toutes les données ?"
+          text="Sont effacés : commandes, paiements, caisses, menu, produits, stock, tables, QR codes, historique et comptes des caissiers, cuisiniers et serveurs. Sont conservés : les restaurants, le super admin et les gérants. Action irréversible."
+          confirmLabel="Tout effacer"
+          danger
+          busy={busy}
+          requireText="EFFACER"
+          requirePassword
+          onConfirm={(password) => void resetData(password)}
+          onClose={() => setResetting(false)}
         />
       )}
 
