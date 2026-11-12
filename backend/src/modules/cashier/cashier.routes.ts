@@ -531,6 +531,8 @@ const counterSchema = z.object({
   type: z.enum(['DINE_IN', 'TAKEAWAY']),
   tableId: z.string().uuid().optional(),
   notes: z.string().trim().max(300).optional(),
+  // À emporter : nom du client, appelé au haut-parleur quand la commande est prête
+  customerName: z.string().trim().min(2).max(40).optional(),
   items: z.array(orderItemSchema).min(1).max(40),
   payNow: z.boolean().default(false),
 });
@@ -552,6 +554,10 @@ cashierRouter.post(
       if (!table) throw new AppError(404, 'NOT_FOUND', 'Table introuvable');
     }
 
+    if (body.type === 'TAKEAWAY' && !body.customerName) {
+      throw new AppError(400, 'NAME_REQUIRED', 'Le nom du client est obligatoire pour une commande à emporter');
+    }
+
     // Paiement immédiat : MA caisse doit être ouverte AVANT de créer la commande
     if (body.payNow) await requireOpenSession(prisma, restaurantId, uid(req));
 
@@ -562,6 +568,7 @@ cashierRouter.post(
       qrCodeId: null,
       createdById: uid(req),
       notes: body.notes,
+      customerName: body.type === 'TAKEAWAY' ? body.customerName : undefined,
       idempotencyKey: body.idempotencyKey,
       items: body.items,
     });
@@ -584,6 +591,27 @@ cashierRouter.post(
       include: orderInclude,
     });
     res.status(201).json({ order: presentOrder(fresh), payment: presentPayment(paid.payment) });
+  }),
+);
+
+// Nom du client d'une commande à emporter (saisi par le caissier, annoncé au haut-parleur)
+cashierRouter.post(
+  '/orders/:orderId/customer-name',
+  ...cashierOnly,
+  asyncHandler(async (req, res) => {
+    const { customerName } = z.object({ customerName: z.string().trim().min(2).max(40) }).parse(req.body);
+    const restaurantId = rid(req);
+    const order = await prisma.order.findFirst({ where: { id: String(req.params.orderId), restaurantId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'Commande introuvable');
+    if (order.type !== 'TAKEAWAY') {
+      throw new AppError(400, 'NOT_TAKEAWAY', 'Le nom ne se saisit que pour une commande à emporter');
+    }
+    if (order.status === 'CANCELLED' || order.status === 'SERVED') {
+      throw new AppError(409, 'ORDER_CLOSED', 'Cette commande est déjà terminée');
+    }
+    await prisma.order.update({ where: { id: order.id }, data: { customerName } });
+    void emitOrderUpdated(order.id);
+    res.json({ ok: true });
   }),
 );
 

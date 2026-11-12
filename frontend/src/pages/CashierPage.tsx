@@ -7,6 +7,7 @@ import { CloseSessionSheet } from '../components/CloseSessionSheet';
 import { CollectSheet } from '../components/CollectSheet';
 import { CounterOrderSheet } from '../components/CounterOrderSheet';
 import { BillTicket } from '../components/BillTicket';
+import { CustomerNameSheet } from '../components/CustomerNameSheet';
 import { MobileMoneySheet } from '../components/MobileMoneySheet';
 import { ReceiptSheet } from '../components/ReceiptSheet';
 import { awaitingValidation } from '../lib/mobileMoney';
@@ -54,6 +55,7 @@ function OrderRow({
   readOnly,
   onCollect,
   onVerify,
+  onName,
   onPrint,
   onReceipt,
 }: {
@@ -62,6 +64,7 @@ function OrderRow({
   readOnly: boolean;
   onCollect: () => void;
   onVerify: () => void;
+  onName: () => void;
   onPrint: () => void;
   onReceipt: () => void;
 }) {
@@ -90,6 +93,17 @@ function OrderRow({
       </div>
 
       <p className="mt-3 line-clamp-2 text-sm text-stone-600">{summary}</p>
+      {order.type === 'TAKEAWAY' && !readOnly && order.status !== 'CANCELLED' && order.status !== 'SERVED' && (
+        <button
+          type="button"
+          onClick={onName}
+          className={`mt-2 rounded-xl px-3 py-1.5 text-sm font-medium transition active:scale-[0.97] ${
+            order.customerName ? 'bg-stone-100 text-stone-600' : 'bg-amber-50 text-amber-800 ring-1 ring-amber-200'
+          }`}
+        >
+          {order.customerName ? `Nom : ${order.customerName} · modifier` : 'Ajouter le nom du client'}
+        </button>
+      )}
       {toVerify && payerPhone && (
         <p className="mt-2 text-sm text-stone-600">
           Déposant : <strong className="text-stone-900">{payerPhone}</strong>
@@ -227,6 +241,7 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
 
   const [collecting, setCollecting] = useState<CashierOrder | null>(null);
   const [verifying, setVerifying] = useState<CashierOrder | null>(null);
+  const [naming, setNaming] = useState<CashierOrder | null>(null);
   const [closing, setClosing] = useState<CashSessionView | null>(null);
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const [counterOpen, setCounterOpen] = useState(false);
@@ -442,6 +457,7 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
                   readOnly={readOnly}
                   onCollect={() => setCollecting(o)}
                   onVerify={() => setVerifying(o)}
+                  onName={() => setNaming(o)}
                   onPrint={() => setTicket(o)}
                   onReceipt={() => setReceiptId(o.id)}
                 />
@@ -462,6 +478,15 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
       )}
 
       {ticket && <BillTicket order={ticket} />}
+
+      {naming && (
+        <CustomerNameSheet
+          restaurantId={restaurantId}
+          order={naming}
+          onClose={() => setNaming(null)}
+          onDone={() => void reload()}
+        />
+      )}
 
       {verifying && (
         <MobileMoneySheet

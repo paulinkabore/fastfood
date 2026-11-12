@@ -36,6 +36,7 @@ export function CounterOrderSheet({
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState<'DINE_IN' | 'TAKEAWAY'>('TAKEAWAY');
   const [tableId, setTableId] = useState('');
+  const [customerName, setCustomerName] = useState('');
   const [selected, setSelected] = useState<MenuProduct | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +87,7 @@ export function CounterOrderSheet({
             type,
             tableId: type === 'DINE_IN' && tableId ? tableId : undefined,
             notes: cart.notes.trim() || undefined,
+            customerName: type === 'TAKEAWAY' ? customerName.trim() : undefined,
             items: cart.lines.map((l) => ({
               productId: l.productId,
               quantity: l.quantity,
@@ -136,6 +138,17 @@ export function CounterOrderSheet({
               Sur place
             </button>
           </div>
+
+          {type === 'TAKEAWAY' && (
+            <input
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              maxLength={40}
+              placeholder="Nom du client (appelé au haut-parleur)"
+              aria-label="Nom du client"
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100"
+            />
+          )}
 
           {type === 'DINE_IN' && (
             <select
@@ -242,7 +255,7 @@ export function CounterOrderSheet({
             <button
               type="button"
               onClick={() => void submit(false)}
-              disabled={busy || cart.lines.length === 0}
+              disabled={busy || cart.lines.length === 0 || (type === 'TAKEAWAY' && customerName.trim().length < 2)}
               className="rounded-2xl bg-stone-100 px-4 py-3.5 font-semibold text-stone-800 transition active:scale-[0.98] disabled:opacity-50"
             >
               Payer plus tard
@@ -250,7 +263,7 @@ export function CounterOrderSheet({
             <button
               type="button"
               onClick={() => void submit(true)}
-              disabled={busy || cart.lines.length === 0 || !session}
+              disabled={busy || cart.lines.length === 0 || !session || (type === 'TAKEAWAY' && customerName.trim().length < 2)}
               className="rounded-2xl bg-brand-500 px-4 py-3.5 font-semibold text-white shadow-lg shadow-brand-500/30 transition active:scale-[0.98] disabled:opacity-50"
             >
               Encaisser maintenant
