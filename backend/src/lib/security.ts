@@ -10,7 +10,7 @@ const THROTTLE_MS = 30_000;
 
 export function securityEvent(
   req: Request,
-  action: 'LOGIN_FAILED' | 'LOGIN_BLOCKED' | 'RATE_LIMITED' | 'ACCESS_DENIED',
+  action: 'LOGIN_FAILED' | 'LOGIN_BLOCKED' | 'RATE_LIMITED' | 'ACCESS_DENIED' | 'ROUTE_PROBE',
   details: Record<string, string | number | null> = {},
 ) {
   const ip = req.ip ?? 'inconnue';

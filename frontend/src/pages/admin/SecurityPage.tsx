@@ -28,6 +28,7 @@ const LABELS: Record<string, { label: string; tone: string }> = {
   ACCOUNT_LOCKED: { label: 'Compte bloqué', tone: 'bg-red-50 text-red-700' },
   RATE_LIMITED: { label: 'Trop de requêtes (bloqué)', tone: 'bg-orange-50 text-orange-800' },
   ACCESS_DENIED: { label: 'Accès interdit', tone: 'bg-red-50 text-red-700' },
+  ROUTE_PROBE: { label: 'Sondage de pages inexistantes', tone: 'bg-orange-50 text-orange-800' },
 };
 
 const PERIODS = [
@@ -64,6 +65,9 @@ function Security() {
         <Link to="/admin" className="text-sm font-medium text-brand-600">
           ← Retour aux restaurants
         </Link>
+        <button type="button" onClick={() => void load()} className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white">
+          Actualiser
+        </button>
         <div className="flex gap-1 rounded-full bg-stone-100 p-1">
           {PERIODS.map((p) => (
             <button
@@ -82,8 +86,8 @@ function Security() {
 
       {error && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>}
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {['LOGIN_FAILED', 'ACCOUNT_LOCKED', 'RATE_LIMITED', 'ACCESS_DENIED'].map((k) => (
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {['LOGIN_FAILED', 'ACCOUNT_LOCKED', 'RATE_LIMITED', 'ACCESS_DENIED', 'ROUTE_PROBE'].map((k) => (
           <button
             key={k}
             type="button"

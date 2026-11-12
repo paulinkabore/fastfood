@@ -9,13 +9,18 @@ import { securityEvent } from '../lib/security';
 export const authenticate: RequestHandler = (req, _res, next) => {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
+    securityEvent(req, 'ACCESS_DENIED', { reason: 'sans connexion' });
     return next(new AppError(401, 'UNAUTHENTICATED', 'Connexion requise'));
   }
   try {
     const payload = verifyAccessToken(header.slice(7));
     req.auth = { userId: payload.sub, globalRole: payload.role };
     next();
-  } catch {
+  } catch (err) {
+    // Un jeton simplement expiré est normal ; un jeton falsifié ou illisible ne l'est pas
+    if ((err as Error).name !== 'TokenExpiredError') {
+      securityEvent(req, 'ACCESS_DENIED', { reason: 'jeton falsifié ou invalide' });
+    }
     next(new AppError(401, 'INVALID_TOKEN', 'Jeton invalide ou expiré'));
   }
 };
