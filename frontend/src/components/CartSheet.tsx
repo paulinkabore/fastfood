@@ -185,7 +185,7 @@ export function CartSheet({
                 onSelect={() => setPicked('CASH')}
               />
             )}
-            {mobileMoney && (
+            {mobileMoney && !delivery && (
               <MethodCard
                 active={method === 'MOBILE_MONEY'}
                 title="Mobile Money"
@@ -202,11 +202,6 @@ export function CartSheet({
 
           {method === 'MOBILE_MONEY' && manualMobileMoney && (
             <div className="mt-3 space-y-3 rounded-2xl bg-stone-50 p-4">
-              <ol className="list-decimal space-y-1 pl-5 text-sm text-stone-600">
-                <li>Touchez le bouton ci-dessous pour ouvrir le paiement sur votre téléphone.</li>
-                <li>Validez avec votre code secret.</li>
-                <li>Revenez ici, saisissez le numéro utilisé et confirmez la commande.</li>
-              </ol>
               <a
                 href={ussdLink(manualMobileMoney.merchantCode, cart.subtotal)}
                 className="block rounded-2xl bg-brand-500 px-5 py-3.5 text-center font-semibold text-white shadow-md shadow-brand-500/30 transition active:scale-[0.98]"
