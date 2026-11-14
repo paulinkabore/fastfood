@@ -16,8 +16,7 @@ import {
   type Stats,
 } from '../../features/stats/stats';
 import { ApiError } from '../../lib/api';
-import { authBlob, authRequest } from '../../lib/auth';
-import { saveBlob } from '../../lib/download';
+import { authRequest } from '../../lib/auth';
 import { fcfa } from '../../lib/format';
 
 function Kpi({
@@ -57,7 +56,6 @@ function Statistics({ restaurantId }: { restaurantId: string }) {
   const [data, setData] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
   const [reporting, setReporting] = useState(false);
   const seq = useRef(0);
 
@@ -100,20 +98,6 @@ function Statistics({ restaurantId }: { restaurantId: string }) {
     document.addEventListener('visibilitychange', refresh);
     return () => document.removeEventListener('visibilitychange', refresh);
   }, [load]);
-
-  const exportCsv = async () => {
-    if (exporting || rangeError) return;
-    setExporting(true);
-    setError(null);
-    try {
-      const blob = await authBlob(`${base}/stats/export.csv?from=${range.from}&to=${range.to}`);
-      saveBlob(blob, `commandes-${range.from}_${range.to}.csv`);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
-    } finally {
-      setExporting(false);
-    }
-  };
 
   // Le rapport est affiché hors écran, puis la fenêtre d'impression s'ouvre (« Enregistrer en PDF »)
   useEffect(() => {
@@ -161,14 +145,6 @@ function Statistics({ restaurantId }: { restaurantId: string }) {
             className="rounded-2xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition active:scale-[0.97] disabled:opacity-50"
           >
             Exporter en PDF
-          </button>
-          <button
-            type="button"
-            onClick={() => void exportCsv()}
-            disabled={exporting || rangeError !== null}
-            className="rounded-2xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-stone-900/20 transition active:scale-[0.97] disabled:opacity-50"
-          >
-            {exporting ? 'Préparation…' : 'Exporter en CSV'}
           </button>
         </div>
 
