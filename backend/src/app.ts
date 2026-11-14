@@ -61,13 +61,13 @@ if (env.NODE_ENV !== 'production' && env.PAYMENT_PROVIDER === 'mock') {
   app.use('/api/v1/dev', mockRouter);
 }
 
+setupProduction(app);
+
 // Adresse d'API qui n'existe pas : typique d'un scanner qui cherche des failles
 app.use('/api', (req, res) => {
   securityEvent(req, 'ROUTE_PROBE', { reason: req.method });
   res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Adresse inconnue' } });
 });
-
-setupProduction(app);
 
 app.use(errorHandler);
 
