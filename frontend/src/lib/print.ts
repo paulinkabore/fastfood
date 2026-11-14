@@ -27,3 +27,18 @@ export function printTicket() {
   window.addEventListener('afterprint', clean);
   window.print();
 }
+
+// Impression d'un rapport sur feuille A4 (choisir « Enregistrer en PDF » dans la fenêtre d'impression)
+export function printReport(onDone?: () => void) {
+  const style = document.createElement('style');
+  style.id = 'report-page-size';
+  style.textContent = '@page { size: A4 portrait; margin: 12mm; }';
+  document.head.appendChild(style);
+  const clean = () => {
+    style.remove();
+    window.removeEventListener('afterprint', clean);
+    onDone?.();
+  };
+  window.addEventListener('afterprint', clean);
+  window.print();
+}

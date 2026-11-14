@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BarChart } from '../../components/stats/BarChart';
+import { StatsReport } from '../../components/stats/StatsReport';
+import { printReport } from '../../lib/print';
 import { RequireRole } from '../../components/RequireRole';
 import { StaffLayout } from '../../components/StaffLayout';
 import {
@@ -56,6 +58,7 @@ function Statistics({ restaurantId }: { restaurantId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const seq = useRef(0);
 
   const days = daysBetween(range.from, range.to);
@@ -112,6 +115,13 @@ function Statistics({ restaurantId }: { restaurantId: string }) {
     }
   };
 
+  // Le rapport est affiché hors écran, puis la fenêtre d'impression s'ouvre (« Enregistrer en PDF »)
+  useEffect(() => {
+    if (!reporting) return;
+    const t = window.setTimeout(() => printReport(() => setReporting(false)), 300);
+    return () => window.clearTimeout(t);
+  }, [reporting]);
+
   const pill = (active: boolean) =>
     `shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
       active ? 'bg-stone-900 text-white' : 'bg-white text-stone-600 ring-1 ring-stone-200'
@@ -126,6 +136,7 @@ function Statistics({ restaurantId }: { restaurantId: string }) {
 
   return (
     <>
+      {reporting && data && <StatsReport data={data} />}
       <section className="space-y-3 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-stone-200/70">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1">
@@ -143,6 +154,14 @@ function Statistics({ restaurantId }: { restaurantId: string }) {
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={() => setReporting(true)}
+            disabled={!data || loading || rangeError !== null || reporting}
+            className="rounded-2xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition active:scale-[0.97] disabled:opacity-50"
+          >
+            Exporter en PDF
+          </button>
           <button
             type="button"
             onClick={() => void exportCsv()}

@@ -35,6 +35,11 @@ body {
   display: none;
 }
 
+/* Rapport A4 (statistiques) : même principe */
+.print-report {
+  display: none;
+}
+
 /* Tickets : papier de 80 mm (la hauteur exacte est fixée au moment d'imprimer, voir lib/print.ts) */
 @page {
   size: 80mm 297mm;
@@ -44,6 +49,11 @@ body {
 @media print {
   #root {
     display: none !important;
+  }
+  .print-report {
+    display: block !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   .print-receipt {
     display: block !important;
