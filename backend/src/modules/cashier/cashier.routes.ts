@@ -635,20 +635,24 @@ cashierRouter.post(
       }
 
       const payment = await tx.payment.findFirst({
-        where: { orderId: order.id, status: 'PAID', method: 'CASH' },
+        where: { orderId: order.id, status: 'PAID', method: { in: ['CASH', 'MOBILE_MONEY'] } },
       });
-      if (!payment) throw new AppError(409, 'NOT_PAID', 'Aucun paiement en espèces à rembourser');
+      if (!payment) throw new AppError(409, 'NOT_PAID', 'Aucun paiement à rembourser');
 
-      // L'argent sort de la caisse du caissier qui avait encaissé, si elle est encore ouverte ;
-      // sinon, de la caisse ouverte du gérant
-      const origin = payment.cashSessionId
-        ? await tx.cashSession.findUnique({ where: { id: payment.cashSessionId } })
-        : null;
-      const session =
-        origin && origin.status === 'OPEN'
+      // Espèces : l'argent sort de la caisse du caissier qui avait encaissé, si elle est encore ouverte ;
+      // sinon, de la caisse ouverte du gérant. Mobile Money : rien ne sort du tiroir-caisse, le gérant
+      // rend l'argent au client avec son téléphone et le site enregistre le remboursement.
+      const isCash = payment.method === 'CASH';
+      const origin =
+        isCash && payment.cashSessionId
+          ? await tx.cashSession.findUnique({ where: { id: payment.cashSessionId } })
+          : null;
+      const session = !isCash
+        ? null
+        : origin && origin.status === 'OPEN'
           ? origin
           : await getOpenSession(tx, restaurantId, uid(req));
-      if (!session) {
+      if (isCash && !session) {
         throw new AppError(
           409,
           'NO_OPEN_SESSION',
@@ -663,7 +667,7 @@ cashierRouter.post(
           refundedAt: new Date(),
           refundedById: uid(req),
           refundedReason: reason,
-          refundSessionId: session.id,
+          refundSessionId: session?.id ?? null,
         },
       });
       if (updated.count === 0) {
@@ -696,7 +700,8 @@ cashierRouter.post(
             receiptNumber: payment.receiptNumber,
             reason,
             orderCancelled: cancel,
-            refundedFromSessionId: session.id,
+            method: payment.method,
+            refundedFromSessionId: session?.id ?? null,
           },
         },
       });

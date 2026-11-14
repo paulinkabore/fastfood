@@ -218,8 +218,7 @@ function Orders({ restaurantId }: { restaurantId: string }) {
             const st = STATUS[o.status];
             const pay = PAYMENT[o.paymentStatus];
             const paid = o.payments.find((p) => p.status === 'PAID' || p.status === 'REFUNDED');
-            const canRefund = o.paymentStatus === 'PAID' && paid?.method === 'CASH';
-            const mobilePaid = o.paymentStatus === 'PAID' && paid?.method === 'MOBILE_MONEY';
+            const canRefund = o.paymentStatus === 'PAID' && (paid?.method === 'CASH' || paid?.method === 'MOBILE_MONEY');
             const hasReceipt = o.paymentStatus === 'PAID' || o.paymentStatus === 'REFUNDED';
 
             return (
@@ -259,11 +258,6 @@ function Orders({ restaurantId }: { restaurantId: string }) {
                   )}
                 </div>
 
-                {mobilePaid && (
-                  <p className="mt-2 rounded-xl bg-sky-50 px-3 py-2 text-xs text-sky-800">
-                    Payée par Mobile Money : le remboursement se fait auprès du prestataire (non disponible ici).
-                  </p>
-                )}
                 {o.paymentStatus === 'PENDING' && o.status !== 'CANCELLED' && (
                   <p className="mt-2 text-xs text-stone-400">À encaisser depuis l’écran Caisse.</p>
                 )}
@@ -310,7 +304,9 @@ function Orders({ restaurantId }: { restaurantId: string }) {
           text={
             dialog.kind === 'cancel'
               ? 'La commande est annulée. Si la préparation avait commencé, le stock des ingrédients est remis.'
-              : `${fcfa(dialog.order.totalFcfa)} sortent de la caisse. Si la commande est encore en cours, elle est annulée et le stock remis.`
+              : dialog.order.payments.some((p) => p.status === 'PAID' && p.method === 'MOBILE_MONEY')
+                ? `Payée par Mobile Money : rendez ${fcfa(dialog.order.totalFcfa)} au client depuis votre téléphone (Mobile Money), puis confirmez ici pour enregistrer le remboursement. Si la commande est encore en cours, elle est annulée et le stock remis.`
+                : `${fcfa(dialog.order.totalFcfa)} sortent de la caisse. Si la commande est encore en cours, elle est annulée et le stock remis.`
           }
           confirmLabel={dialog.kind === 'cancel' ? 'Annuler la commande' : 'Rembourser'}
           chips={
