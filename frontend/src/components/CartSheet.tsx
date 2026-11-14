@@ -66,8 +66,8 @@ export function CartSheet({
   const [picked, setPicked] = useState<Method | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  // En livraison, le Mobile Money est préchoisi quand il est disponible
-  const method: Method = picked ?? (delivery && mobileMoney ? 'MOBILE_MONEY' : 'CASH');
+  // En livraison, le paiement se fait obligatoirement par Mobile Money
+  const method: Method = delivery ? 'MOBILE_MONEY' : (picked ?? 'CASH');
 
   const submit = async () => {
     if (submitting.current) return;
@@ -177,16 +177,14 @@ export function CartSheet({
         <div>
           <h3 className="mb-2 text-sm font-semibold text-stone-700">Paiement</h3>
           <div className="space-y-2">
-            <MethodCard
-              active={method === 'CASH'}
-              title={delivery ? 'Espèces à la livraison' : 'Espèces à la caisse'}
-              text={
-                delivery
-                  ? 'Vous réglez le livreur à la réception de votre commande.'
-                  : 'Vous réglez auprès du caissier, quand vous le souhaitez.'
-              }
-              onSelect={() => setPicked('CASH')}
-            />
+            {!delivery && (
+              <MethodCard
+                active={method === 'CASH'}
+                title="Espèces à la caisse"
+                text="Vous réglez auprès du caissier, quand vous le souhaitez."
+                onSelect={() => setPicked('CASH')}
+              />
+            )}
             {mobileMoney && (
               <MethodCard
                 active={method === 'MOBILE_MONEY'}
@@ -194,6 +192,11 @@ export function CartSheet({
                 text="Vous payez maintenant avec votre téléphone, le caissier valide ensuite votre paiement."
                 onSelect={() => setPicked('MOBILE_MONEY')}
               />
+            )}
+            {delivery && !mobileMoney && (
+              <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Le paiement par Mobile Money n’est pas disponible pour le moment, la livraison ne peut pas être commandée.
+              </p>
             )}
           </div>
 
@@ -242,7 +245,7 @@ export function CartSheet({
         <button
           type="button"
           onClick={submit}
-          disabled={loading || cart.lines.length === 0}
+          disabled={loading || cart.lines.length === 0 || (delivery && !mobileMoney)}
           className="w-full rounded-2xl bg-stone-900 px-5 py-4 font-semibold text-white shadow-lg shadow-stone-900/20 transition active:scale-[0.98] disabled:opacity-60"
         >
           {loading

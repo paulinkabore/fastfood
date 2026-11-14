@@ -122,6 +122,11 @@ publicOrdersRouter.post(
       );
     }
 
+    // Livraison : le paiement Mobile Money est obligatoire (pas de paiement à la caisse)
+    if (delivery && !body.payment) {
+      throw new AppError(400, 'PAYMENT_REQUIRED', 'Le paiement par Mobile Money est obligatoire pour une livraison');
+    }
+
     // Anti double envoi : même clé = même commande, renvoyée telle quelle
     const existing = await findOrderByKey(qr.restaurantId, body.idempotencyKey);
     if (existing) {
