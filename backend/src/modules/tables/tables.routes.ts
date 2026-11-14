@@ -6,10 +6,11 @@ import { AppError } from '../../lib/errors';
 import { asyncHandler } from '../../lib/asyncHandler';
 import { audit } from '../../lib/audit';
 import { authenticate, requireRestaurantRole } from '../../middleware/auth';
-import { newQrToken, qrUrl, qrPng } from '../../lib/qr';
+import { newQrToken, qrUrl, qrPng, withRequestBase } from '../../lib/qr';
 import { buildQrPdf } from '../../lib/qrPdf';
 
 export const tablesRouter = Router({ mergeParams: true });
+tablesRouter.use(withRequestBase);
 
 const READ: MemberRole[] = ['MANAGER', 'CASHIER', 'COOK', 'WAITER'];
 const canRead = [authenticate, requireRestaurantRole(...READ)];
