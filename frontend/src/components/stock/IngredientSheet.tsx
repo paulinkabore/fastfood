@@ -6,10 +6,6 @@ import type { CategoryRow } from '../../features/menu/menu';
 import { Sheet } from '../Sheet';
 import { CloseIcon } from '../icons';
 
-// Le stock ne gère que les jus, boissons et vins
-const isStockCategory = (name: string) =>
-  /^(jus|boisson|vin)/.test(name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase());
-
 const field =
   'w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100';
 
@@ -37,8 +33,8 @@ export function IngredientSheet({
   const [askArchive, setAskArchive] = useState(false);
 
   useEffect(() => {
-    authRequest<{ categories: CategoryRow[] }>(`${base}/categories`)
-      .then((d) => setCategories(d.categories.filter((c) => isStockCategory(c.name))))
+    authRequest<{ categories: CategoryRow[] }>(`${base}/stock-categories`)
+      .then((d) => setCategories(d.categories))
       .catch(() => setError('Impossible de charger les catégories'));
   }, [base]);
 
@@ -124,7 +120,7 @@ export function IngredientSheet({
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={80}
-            placeholder="Ex. Poulet"
+            placeholder="Ex. Coca-Cola 33 cl"
             className={field}
           />
         </div>
@@ -141,11 +137,6 @@ export function IngredientSheet({
               </option>
             ))}
           </select>
-          {categories.length === 0 && (
-            <p className="mt-1.5 text-xs text-stone-500">
-              Aucune catégorie « Jus », « Boissons » ou « Vins » : créez-la d’abord dans le Menu.
-            </p>
-          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -178,14 +169,6 @@ export function IngredientSheet({
             />
           </div>
         </div>
-
-        {ingredient && (
-          <p className="rounded-2xl bg-stone-50 px-4 py-3 text-sm text-stone-500">
-            Pour changer la quantité, utilisez <span className="font-medium">Entrée</span>,{' '}
-            <span className="font-medium">Perte</span> ou l’onglet <span className="font-medium">Inventaire</span> :
-            chaque changement est ainsi tracé.
-          </p>
-        )}
 
         {error && (
           <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>

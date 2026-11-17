@@ -77,6 +77,33 @@ async function findProduct(id: string, restaurantId: string) {
   return product;
 }
 
+// Catégories du stock : Jus, Boissons, Vins (créées automatiquement si elles manquent)
+stockRouter.get(
+  '/stock-categories',
+  ...canManage,
+  asyncHandler(async (req, res) => {
+    const restaurantId = rid(req);
+    const all = await prisma.category.findMany({ where: { restaurantId }, orderBy: { sortOrder: 'asc' } });
+    const wanted = [
+      { prefix: 'jus', name: 'Jus' },
+      { prefix: 'boisson', name: 'Boissons' },
+      { prefix: 'vin', name: 'Vins' },
+    ];
+    const norm = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+    let next = all.reduce((m, c) => Math.max(m, c.sortOrder), 0);
+    for (const w of wanted) {
+      if (!all.some((c) => norm(c.name).startsWith(w.prefix))) {
+        next += 1;
+        await prisma.category.create({ data: { restaurantId, name: w.name, sortOrder: next } });
+      }
+    }
+    const categories = (await prisma.category.findMany({ where: { restaurantId }, orderBy: { sortOrder: 'asc' } }))
+      .filter((c) => isStockCategoryName(c.name))
+      .map((c) => ({ id: c.id, name: c.name }));
+    res.json({ categories });
+  }),
+);
+
 // ================= Ingrédients =================
 stockRouter.get(
   '/ingredients',

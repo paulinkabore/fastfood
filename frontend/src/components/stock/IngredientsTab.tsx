@@ -57,11 +57,11 @@ export function IngredientsTab({
           ))}
         </div>
       ) : shown.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-stone-300 px-4 py-14 text-center text-sm text-stone-400">
-          {filter === 'low'
-            ? 'Aucun ingrédient en alerte.'
-            : 'Aucun ingrédient. Ajoutez le premier (par exemple Poulet, en kg).'}
-        </p>
+        filter === 'low' ? (
+          <p className="rounded-2xl border border-dashed border-stone-300 px-4 py-14 text-center text-sm text-stone-400">
+            Aucun ingrédient en alerte.
+          </p>
+        ) : null
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {shown.map((i) => {
