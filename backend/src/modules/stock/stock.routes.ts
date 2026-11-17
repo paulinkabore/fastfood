@@ -54,9 +54,20 @@ async function findIngredient(id: string, restaurantId: string) {
 }
 
 // La catégorie doit appartenir à CE restaurant
+// Le stock ne gère que les jus, boissons et vins
+const isStockCategoryName = (name: string) =>
+  /^(jus|boisson|vin)/.test(name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase());
+
 async function findCategory(id: string, restaurantId: string) {
   const category = await prisma.category.findFirst({ where: { id, restaurantId } });
   if (!category) throw new AppError(400, 'CATEGORY_NOT_FOUND', 'Catégorie introuvable');
+  if (!isStockCategoryName(category.name)) {
+    throw new AppError(
+      400,
+      'CATEGORY_NOT_ALLOWED',
+      'Le stock accepte uniquement les catégories jus, boissons et vins',
+    );
+  }
   return category;
 }
 

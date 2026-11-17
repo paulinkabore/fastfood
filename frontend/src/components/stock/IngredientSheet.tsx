@@ -6,6 +6,10 @@ import type { CategoryRow } from '../../features/menu/menu';
 import { Sheet } from '../Sheet';
 import { CloseIcon } from '../icons';
 
+// Le stock ne gère que les jus, boissons et vins
+const isStockCategory = (name: string) =>
+  /^(jus|boisson|vin)/.test(name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase());
+
 const field =
   'w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100';
 
@@ -34,7 +38,7 @@ export function IngredientSheet({
 
   useEffect(() => {
     authRequest<{ categories: CategoryRow[] }>(`${base}/categories`)
-      .then((d) => setCategories(d.categories))
+      .then((d) => setCategories(d.categories.filter((c) => isStockCategory(c.name))))
       .catch(() => setError('Impossible de charger les catégories'));
   }, [base]);
 
@@ -130,13 +134,18 @@ export function IngredientSheet({
             Catégorie
           </label>
           <select id="i-cat" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={field}>
-            <option value="">Choisir une catégorie…</option>
+            <option value="">Choisir : jus, boissons ou vins…</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
           </select>
+          {categories.length === 0 && (
+            <p className="mt-1.5 text-xs text-stone-500">
+              Aucune catégorie « Jus », « Boissons » ou « Vins » : créez-la d’abord dans le Menu.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
