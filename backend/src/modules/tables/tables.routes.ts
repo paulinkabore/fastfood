@@ -109,6 +109,57 @@ tablesRouter.post(
   }),
 );
 
+// Le gérant donne le nombre de tables : on crée les tables manquantes (Table 1…N) et tous leurs QR codes
+tablesRouter.post(
+  '/tables/bulk',
+  ...canManage,
+  asyncHandler(async (req, res) => {
+    const { count } = z.object({ count: z.number().int().min(1).max(100) }).parse(req.body);
+    const restaurantId = rid(req);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.restaurantTable.findMany({ where: { restaurantId } });
+      const byLabel = new Map(existing.map((t) => [t.label.trim().toLowerCase(), t]));
+      let createdTables = 0;
+      const targets: string[] = [];
+
+      for (let n = 1; n <= count; n++) {
+        const label = `Table ${n}`;
+        let table = byLabel.get(label.toLowerCase());
+        if (!table) {
+          table = await tx.restaurantTable.create({ data: { restaurantId, label } });
+          createdTables += 1;
+        } else if (!table.isActive) {
+          table = await tx.restaurantTable.update({ where: { id: table.id }, data: { isActive: true } });
+        }
+        targets.push(table.id);
+      }
+
+      const withQr = await tx.qrCode.findMany({
+        where: { restaurantId, type: 'TABLE', isActive: true, tableId: { in: targets } },
+        select: { tableId: true },
+      });
+      const have = new Set(withQr.map((q) => q.tableId));
+      const missing = targets.filter((id) => !have.has(id));
+      if (missing.length > 0) {
+        await tx.qrCode.createMany({
+          data: missing.map((tableId) => ({ restaurantId, type: 'TABLE' as QrType, tableId, token: newQrToken() })),
+        });
+      }
+      return { createdTables, createdQr: missing.length };
+    });
+
+    await audit({
+      userId: req.auth!.userId,
+      restaurantId,
+      action: 'TABLES_BULK_CREATED',
+      entity: 'RestaurantTable',
+      details: { count, ...result },
+    });
+    res.status(201).json({ count, ...result });
+  }),
+);
+
 tablesRouter.patch(
   '/tables/:id',
   ...canManage,

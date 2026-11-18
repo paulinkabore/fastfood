@@ -31,5 +31,5 @@ export const qrPng = (token: string, width = 600) =>
     type: 'png',
     width,
     margin: 2,
-    errorCorrectionLevel: 'M',
+    errorCorrectionLevel: 'H' // niveau élevé : le logo au centre ne gêne pas la lecture,
   });

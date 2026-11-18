@@ -4,6 +4,7 @@ import { RequireRole } from '../../components/RequireRole';
 import { StaffLayout } from '../../components/StaffLayout';
 import { ApiError } from '../../lib/api';
 import { authBlob, authRequest } from '../../lib/auth';
+import { composeQrCard } from '../../lib/qrCard';
 
 type TableRow = {
   id: string;
@@ -43,7 +44,7 @@ function saveBlob(blob: Blob, filename: string) {
 }
 
 // L'image du QR code demande une connexion : on la télécharge puis on l'affiche
-function QrImage({ restaurantId, qrId }: { restaurantId: string; qrId: string }) {
+function QrImage({ restaurantId, qrId, label }: { restaurantId: string; qrId: string; label: string }) {
   const [src, setSrc] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -51,6 +52,7 @@ function QrImage({ restaurantId, qrId }: { restaurantId: string; qrId: string })
     let url: string | null = null;
     let cancelled = false;
     authBlob(`/restaurants/${restaurantId}/qr-codes/${qrId}/image`)
+      .then((blob) => composeQrCard(blob, label))
       .then((blob) => {
         if (cancelled) return;
         url = URL.createObjectURL(blob);
@@ -63,7 +65,7 @@ function QrImage({ restaurantId, qrId }: { restaurantId: string; qrId: string })
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [restaurantId, qrId]);
+  }, [restaurantId, qrId, label]);
 
   if (failed) {
     return (
@@ -72,12 +74,13 @@ function QrImage({ restaurantId, qrId }: { restaurantId: string; qrId: string })
       </div>
     );
   }
-  if (!src) return <div className="h-36 w-36 animate-pulse rounded-xl bg-stone-100" />;
-  return <img src={src} alt="QR code" className="h-36 w-36 rounded-xl" />;
+  if (!src) return <div className="h-44 w-36 animate-pulse rounded-xl bg-stone-100" />;
+  return <img src={src} alt={`QR code ${label}`} className="w-36 rounded-xl" />;
 }
 
 function QrBlock({
   qr,
+  label,
   restaurantId,
   disabled,
   onCopy,
@@ -86,6 +89,7 @@ function QrBlock({
   onDeactivate,
 }: {
   qr: QrRow;
+  label: string;
   restaurantId: string;
   disabled: boolean;
   onCopy: () => void;
@@ -98,7 +102,7 @@ function QrBlock({
   return (
     <div className="mt-4 flex gap-4">
       <div className="shrink-0 rounded-2xl bg-white p-2 ring-1 ring-stone-200">
-        <QrImage restaurantId={restaurantId} qrId={qr.id} />
+        <QrImage restaurantId={restaurantId} qrId={qr.id} label={label} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <a
@@ -143,6 +147,7 @@ function Tables({ restaurantId }: { restaurantId: string }) {
 
   const [newLabel, setNewLabel] = useState('');
   const [newSeats, setNewSeats] = useState('');
+  const [count, setCount] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -203,6 +208,26 @@ function Tables({ restaurantId }: { restaurantId: string }) {
     setNewSeats('');
   };
 
+  const generateAll = async (e: FormEvent) => {
+    e.preventDefault();
+    const n = Number(count);
+    if (!Number.isInteger(n) || n < 1 || n > 100) return setError('Entrez un nombre de tables entre 1 et 100');
+    await run(
+      'bulk',
+      async () => {
+        const r = await authRequest<{ createdTables: number; createdQr: number }>(`${base}/tables/bulk`, {
+          method: 'POST',
+          body: JSON.stringify({ count: n }),
+        });
+        setMessage(
+          `${n} table${n > 1 ? 's' : ''} prête${n > 1 ? 's' : ''} : ${r.createdTables} créée${r.createdTables > 1 ? 's' : ''}, ${r.createdQr} QR code${r.createdQr > 1 ? 's' : ''} généré${r.createdQr > 1 ? 's' : ''}. Cliquez sur « Imprimer tous les QR (PDF) ».`,
+        );
+      },
+      undefined,
+    );
+    setCount('');
+  };
+
   const confirmRun = async () => {
     if (!confirm) return;
     const c = confirm;
@@ -218,7 +243,7 @@ function Tables({ restaurantId }: { restaurantId: string }) {
     setConfirm(null);
   };
 
-  const qrActions = (qr: QrRow, name: string) => ({
+  const qrActions = (qr: QrRow, name: string, label: string) => ({
     onCopy: () =>
       void navigator.clipboard
         .writeText(qr.url)
@@ -227,7 +252,11 @@ function Tables({ restaurantId }: { restaurantId: string }) {
     onDownload: () =>
       void run(
         `dl:${qr.id}`,
-        async () => saveBlob(await authBlob(`${base}/qr-codes/${qr.id}/image`), `qr-${name}.png`),
+        async () =>
+          saveBlob(
+            await composeQrCard(await authBlob(`${base}/qr-codes/${qr.id}/image`), label),
+            `qr-${name}.png`,
+          ),
         'Image téléchargée',
         false,
       ),
@@ -270,6 +299,35 @@ function Tables({ restaurantId }: { restaurantId: string }) {
           {message}
         </p>
       )}
+
+      <section className="rounded-3xl bg-gradient-to-br from-stone-900 to-stone-800 p-5 text-white shadow-lg shadow-stone-900/20">
+        <h2 className="text-lg font-semibold tracking-tight">Combien de tables avez-vous ?</h2>
+        <p className="mt-1 text-sm text-stone-300">
+          Entrez le nombre : toutes les tables et tous leurs QR codes sont créés d’un coup.
+        </p>
+        <form onSubmit={generateAll} className="mt-4 flex flex-wrap gap-2">
+          <input
+            value={count}
+            onChange={(e) => setCount(e.target.value.replace(/\D/g, '').slice(0, 3))}
+            placeholder="Ex. 12"
+            aria-label="Nombre de tables"
+            inputMode="numeric"
+            className="w-32 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-white outline-none placeholder:text-stone-400 focus:border-white/60"
+          />
+          <button
+            type="submit"
+            disabled={anyBusy || !count}
+            className="rounded-2xl bg-brand-500 px-5 py-3 font-semibold text-white shadow-md shadow-brand-500/30 transition active:scale-[0.97] disabled:opacity-50"
+          >
+            {busy === 'bulk' ? 'Génération…' : 'Générer les tables et les QR codes'}
+          </button>
+        </form>
+        {tables.length > 0 && (
+          <p className="mt-2 text-xs text-stone-400">
+            Vous avez déjà {tables.length} table{tables.length > 1 ? 's' : ''} : seules les tables manquantes sont créées.
+          </p>
+        )}
+      </section>
 
       <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-stone-200/70">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -331,7 +389,8 @@ function Tables({ restaurantId }: { restaurantId: string }) {
             qr={takeaway}
             restaurantId={restaurantId}
             disabled={anyBusy}
-            {...qrActions(takeaway, 'emporter')}
+            label="À emporter"
+            {...qrActions(takeaway, 'emporter', 'À emporter')}
           />
         ) : (
           <button
@@ -375,7 +434,7 @@ function Tables({ restaurantId }: { restaurantId: string }) {
           </div>
         ) : visible.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-stone-300 px-4 py-12 text-center text-sm text-stone-400">
-            Aucune table. Ajoutez-en une ci-dessus.
+            Aucune table. Indiquez le nombre de tables ci-dessus.
           </p>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
@@ -409,7 +468,8 @@ function Tables({ restaurantId }: { restaurantId: string }) {
                       qr={qr}
                       restaurantId={restaurantId}
                       disabled={anyBusy}
-                      {...qrActions(qr, t.label)}
+                      label={t.label}
+                      {...qrActions(qr, t.label, t.label)}
                     />
                   ) : (
                     <div className="mt-4 rounded-2xl border border-dashed border-stone-300 p-4 text-center">
