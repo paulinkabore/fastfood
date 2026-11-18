@@ -145,8 +145,6 @@ function Tables({ restaurantId }: { restaurantId: string }) {
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [showInactive, setShowInactive] = useState(false);
 
-  const [newLabel, setNewLabel] = useState('');
-  const [newSeats, setNewSeats] = useState('');
   const [count, setCount] = useState('');
 
   const load = useCallback(async () => {
@@ -188,24 +186,6 @@ function Tables({ restaurantId }: { restaurantId: string }) {
     } finally {
       setBusy(null);
     }
-  };
-
-  const addTable = async (e: FormEvent) => {
-    e.preventDefault();
-    const label = newLabel.trim();
-    if (!label) return;
-    const seats = newSeats.trim() ? Number(newSeats) : undefined;
-    await run(
-      'add',
-      () =>
-        authRequest(`${base}/tables`, {
-          method: 'POST',
-          body: JSON.stringify({ label, seats }),
-        }),
-      `Table « ${label} » créée`,
-    );
-    setNewLabel('');
-    setNewSeats('');
   };
 
   const generateAll = async (e: FormEvent) => {
@@ -286,9 +266,6 @@ function Tables({ restaurantId }: { restaurantId: string }) {
   const hidden = tables.length - tables.filter((t) => t.isActive).length;
   const anyBusy = busy !== null;
 
-  const field =
-    'rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100';
-
   return (
     <>
       {error && (
@@ -300,9 +277,9 @@ function Tables({ restaurantId }: { restaurantId: string }) {
         </p>
       )}
 
-      <section className="rounded-3xl bg-gradient-to-br from-stone-900 to-stone-800 p-5 text-white shadow-lg shadow-stone-900/20">
-        <h2 className="text-lg font-semibold tracking-tight">Combien de tables avez-vous ?</h2>
-        <p className="mt-1 text-sm text-stone-300">
+      <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-stone-200/70">
+        <h2 className="font-semibold tracking-tight">Combien de tables avez-vous ?</h2>
+        <p className="text-sm text-stone-500">
           Entrez le nombre : toutes les tables et tous leurs QR codes sont créés d’un coup.
         </p>
         <form onSubmit={generateAll} className="mt-4 flex flex-wrap gap-2">
@@ -312,7 +289,7 @@ function Tables({ restaurantId }: { restaurantId: string }) {
             placeholder="Ex. 12"
             aria-label="Nombre de tables"
             inputMode="numeric"
-            className="w-32 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-white outline-none placeholder:text-stone-400 focus:border-white/60"
+            className="w-32 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100"
           />
           <button
             type="submit"
@@ -321,20 +298,6 @@ function Tables({ restaurantId }: { restaurantId: string }) {
           >
             {busy === 'bulk' ? 'Génération…' : 'Générer les tables et les QR codes'}
           </button>
-        </form>
-        {tables.length > 0 && (
-          <p className="mt-2 text-xs text-stone-400">
-            Vous avez déjà {tables.length} table{tables.length > 1 ? 's' : ''} : seules les tables manquantes sont créées.
-          </p>
-        )}
-      </section>
-
-      <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-stone-200/70">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="font-semibold tracking-tight">Ajouter une table</h2>
-            <p className="text-sm text-stone-500">Chaque table aura son propre QR code.</p>
-          </div>
           <button
             type="button"
             disabled={anyBusy}
@@ -346,37 +309,16 @@ function Tables({ restaurantId }: { restaurantId: string }) {
                 false,
               )
             }
-            className="rounded-2xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-stone-900/20 transition active:scale-[0.97] disabled:opacity-60"
+            className="rounded-2xl bg-brand-50 px-5 py-3 font-semibold text-brand-600 ring-1 ring-brand-100 transition active:scale-[0.97] disabled:opacity-50"
           >
             {busy === 'pdf' ? 'Préparation…' : 'Imprimer tous les QR (PDF)'}
           </button>
-        </div>
-        <form onSubmit={addTable} className="mt-4 flex flex-wrap gap-2">
-          <input
-            value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
-            placeholder="Nom (ex. Table 5)"
-            aria-label="Nom de la table"
-            maxLength={30}
-            required
-            className={`${field} min-w-48 flex-1`}
-          />
-          <input
-            value={newSeats}
-            onChange={(e) => setNewSeats(e.target.value.replace(/\D/g, ''))}
-            placeholder="Places"
-            aria-label="Nombre de places"
-            inputMode="numeric"
-            className={`${field} w-28`}
-          />
-          <button
-            type="submit"
-            disabled={anyBusy || !newLabel.trim()}
-            className="rounded-2xl bg-brand-500 px-5 py-3 font-semibold text-white shadow-md shadow-brand-500/30 transition active:scale-[0.97] disabled:opacity-50"
-          >
-            {busy === 'add' ? 'Création…' : 'Ajouter'}
-          </button>
         </form>
+        {tables.length > 0 && (
+          <p className="mt-2 text-xs text-stone-400">
+            Vous avez déjà {tables.length} table{tables.length > 1 ? 's' : ''} : seules les tables manquantes sont créées.
+          </p>
+        )}
       </section>
 
       <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-stone-200/70">
