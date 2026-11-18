@@ -4,6 +4,7 @@ import { RequireRole } from '../../components/RequireRole';
 import { StaffLayout } from '../../components/StaffLayout';
 import { ApiError } from '../../lib/api';
 import { authBlob, authRequest } from '../../lib/auth';
+import { composeQrCard } from '../../lib/qrCard';
 import { saveBlob } from '../../lib/download';
 
 type QrRow = { id: string; type: string; url: string; isActive: boolean };
@@ -18,6 +19,7 @@ function QrImage({ restaurantId, qrId }: { restaurantId: string; qrId: string })
     let url: string | null = null;
     let cancelled = false;
     authBlob(`/restaurants/${restaurantId}/qr-codes/${qrId}/image`)
+      .then((blob) => composeQrCard(blob, 'Livraison'))
       .then((blob) => {
         if (cancelled) return;
         url = URL.createObjectURL(blob);
@@ -39,8 +41,8 @@ function QrImage({ restaurantId, qrId }: { restaurantId: string; qrId: string })
       </div>
     );
   }
-  if (!src) return <div className="h-40 w-40 animate-pulse rounded-xl bg-stone-100" />;
-  return <img src={src} alt="QR code de la livraison" className="h-40 w-40 rounded-xl" />;
+  if (!src) return <div className="h-48 w-40 animate-pulse rounded-xl bg-stone-100" />;
+  return <img src={src} alt="QR code de la livraison" className="w-40 rounded-xl" />;
 }
 
 function Delivery({ restaurantId }: { restaurantId: string }) {
@@ -166,7 +168,11 @@ function Delivery({ restaurantId }: { restaurantId: string }) {
                   onClick={() =>
                     void run(
                       'dl',
-                      async () => saveBlob(await authBlob(`${base}/qr-codes/${qr.id}/image`), 'qr-livraison.png'),
+                      async () =>
+                        saveBlob(
+                          await composeQrCard(await authBlob(`${base}/qr-codes/${qr.id}/image`), 'Livraison'),
+                          'qr-livraison.png',
+                        ),
                       'Image téléchargée',
                       false,
                     )
