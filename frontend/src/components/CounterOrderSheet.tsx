@@ -20,8 +20,10 @@ export function CounterOrderSheet({
   session,
   onClose,
   onCreated,
+  mode = 'cashier',
 }: {
   restaurantId: string;
+  mode?: 'cashier' | 'waiter';
   session: CashSessionView | null;
   onClose: () => void;
   onCreated: (result: { orderId: string; paid: boolean }) => void;
@@ -34,7 +36,8 @@ export function CounterOrderSheet({
   const [tables, setTables] = useState<StaffTable[]>([]);
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [type, setType] = useState<'DINE_IN' | 'TAKEAWAY'>('TAKEAWAY');
+  const waiter = mode === 'waiter';
+  const [type, setType] = useState<'DINE_IN' | 'TAKEAWAY'>(waiter ? 'DINE_IN' : 'TAKEAWAY');
   const [tableId, setTableId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [selected, setSelected] = useState<MenuProduct | null>(null);
@@ -74,17 +77,18 @@ export function CounterOrderSheet({
 
   const submit = async (payNow: boolean) => {
     if (lock.current || cart.lines.length === 0) return;
+    if (waiter && !tableId) return setError('Choisissez la table');
     lock.current = true;
     setBusy(true);
     setError(null);
     try {
       const data = await authRequest<{ order: { id: string } }>(
-        `/restaurants/${restaurantId}/cashier/orders`,
+        `/restaurants/${restaurantId}/${waiter ? 'waiter' : 'cashier'}/orders`,
         {
           method: 'POST',
           body: JSON.stringify({
             idempotencyKey: cart.idempotencyKey,
-            type,
+            ...(waiter ? {} : { type }),
             tableId: type === 'DINE_IN' && tableId ? tableId : undefined,
             notes: cart.notes.trim() || undefined,
             customerName: type === 'TAKEAWAY' ? customerName.trim() : undefined,
@@ -94,7 +98,7 @@ export function CounterOrderSheet({
               optionIds: l.options.map((o) => o.id),
               notes: l.notes,
             })),
-            payNow,
+            ...(waiter ? {} : { payNow }),
           }),
         },
       );
@@ -130,6 +134,7 @@ export function CounterOrderSheet({
         </div>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+          {!waiter && (
           <div className="flex gap-2">
             <button type="button" className={toggle(type === 'TAKEAWAY')} onClick={() => setType('TAKEAWAY')}>
               À emporter
@@ -138,6 +143,7 @@ export function CounterOrderSheet({
               Sur place
             </button>
           </div>
+          )}
 
           {type === 'TAKEAWAY' && (
             <input
@@ -157,7 +163,7 @@ export function CounterOrderSheet({
               aria-label="Table"
               className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100"
             >
-              <option value="">Sans table</option>
+              <option value="">{waiter ? 'Choisir la table…' : 'Sans table'}</option>
               {tables.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.label}
@@ -251,6 +257,16 @@ export function CounterOrderSheet({
             <span className="text-stone-500">Total</span>
             <span className="text-lg font-semibold">{fcfa(cart.subtotal)}</span>
           </div>
+          {waiter ? (
+            <button
+              type="button"
+              onClick={() => void submit(false)}
+              disabled={busy || cart.lines.length === 0 || !tableId}
+              className="w-full rounded-2xl bg-brand-500 px-4 py-3.5 font-semibold text-white shadow-lg shadow-brand-500/30 transition active:scale-[0.98] disabled:opacity-50"
+            >
+              {busy ? 'Envoi…' : 'Envoyer en cuisine'}
+            </button>
+          ) : (
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -269,7 +285,8 @@ export function CounterOrderSheet({
               Encaisser maintenant
             </button>
           </div>
-          {!session && (
+          )}
+          {!waiter && !session && (
             <p className="mt-2 text-center text-xs text-stone-500">
               Ouvrez votre caisse pour encaisser tout de suite.
             </p>

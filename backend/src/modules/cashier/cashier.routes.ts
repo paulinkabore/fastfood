@@ -594,6 +594,41 @@ cashierRouter.post(
   }),
 );
 
+// Commande prise par le serveur à une table : part en cuisine, le client paie ensuite à la caisse
+const waiterSchema = z.object({
+  idempotencyKey: z.string().uuid(),
+  tableId: z.string().uuid(),
+  notes: z.string().trim().max(300).optional(),
+  items: z.array(orderItemSchema).min(1).max(40),
+});
+
+cashierRouter.post(
+  '/waiter/orders',
+  authenticate,
+  requireRestaurantRole('WAITER'),
+  asyncHandler(async (req, res) => {
+    const body = waiterSchema.parse(req.body);
+    const restaurantId = rid(req);
+    const table = await prisma.restaurantTable.findFirst({
+      where: { id: body.tableId, restaurantId, isActive: true },
+    });
+    if (!table) throw new AppError(404, 'NOT_FOUND', 'Table introuvable');
+
+    const { order, duplicate } = await createOrder({
+      restaurantId,
+      type: 'DINE_IN',
+      tableId: table.id,
+      qrCodeId: null,
+      createdById: uid(req),
+      notes: body.notes,
+      idempotencyKey: body.idempotencyKey,
+      items: body.items,
+    });
+    if (!duplicate) void emitOrderCreated(order.id);
+    res.status(duplicate ? 200 : 201).json({ order: presentOrder(order), duplicate });
+  }),
+);
+
 // Nom du client d'une commande à emporter (saisi par le caissier, annoncé au haut-parleur)
 cashierRouter.post(
   '/orders/:orderId/customer-name',

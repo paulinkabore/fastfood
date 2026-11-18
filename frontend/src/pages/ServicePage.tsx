@@ -1,12 +1,12 @@
 import { ChangePasswordButton } from '../components/ChangePassword';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RequireRole } from '../components/RequireRole';
 import { StaffLayout } from '../components/StaffLayout';
 import { ApiError } from '../lib/api';
 import { authRequest, useAuth } from '../lib/auth';
 import { fcfa } from '../lib/format';
-import { beep, unlockAudio } from '../lib/sound';
+import { CounterOrderSheet } from '../components/CounterOrderSheet';
 import { useService } from '../features/service/useService';
 import type { OrderStatus, OrderView } from '../lib/types';
 import { placeLabel } from '../lib/orderPlace';
@@ -111,15 +111,9 @@ function Service({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
   const navigate = useNavigate();
   const now = useNow(30_000);
 
-  const [soundOn, setSoundOn] = useState(false);
-  const soundRef = useRef(false);
-  useEffect(() => {
-    soundRef.current = soundOn;
-  }, [soundOn]);
-
-  const { orders, loading, error, live, apply, reload } = useService(restaurantId, () => {
-    if (soundRef.current) beep();
-  });
+  const { orders, loading, error, live, apply, reload } = useService(restaurantId, () => {});
+  const [newOrder, setNewOrder] = useState(false);
+  const [sent, setSent] = useState(false);
 
   const [filter, setFilter] = useState<'all' | 'ready'>('all');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -191,19 +185,12 @@ function Service({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
             <button
               type="button"
               onClick={() => {
-                if (!soundOn) {
-                  unlockAudio();
-                  beep();
-                }
-                setSoundOn((v) => !v);
+                setSent(false);
+                setNewOrder(true);
               }}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                soundOn
-                  ? 'bg-brand-500 text-white shadow-md shadow-brand-500/30'
-                  : 'bg-stone-100 text-stone-600'
-              }`}
+              className="rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-brand-500/30 transition active:scale-[0.97]"
             >
-              {soundOn ? 'Son activé' : 'Activer le son'}
+              Nouvelle commande
             </button>
             <ChangePasswordButton className="rounded-full bg-stone-100 px-4 py-2 text-sm font-medium text-stone-600" />
             <button
@@ -242,6 +229,12 @@ function Service({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
             </p>
           )}
         </div>
+
+        {sent && (
+          <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+            Commande envoyée en cuisine. Le client paiera à la caisse.
+          </p>
+        )}
 
         {(error || actionError) && (
           <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -293,6 +286,20 @@ function Service({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
           </div>
         )}
       </div>
+
+      {newOrder && (
+        <CounterOrderSheet
+          mode="waiter"
+          restaurantId={restaurantId}
+          session={null}
+          onClose={() => setNewOrder(false)}
+          onCreated={() => {
+            setNewOrder(false);
+            setSent(true);
+            void reload();
+          }}
+        />
+      )}
     </div>
   );
 }
