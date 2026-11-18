@@ -39,7 +39,7 @@ function ChangePasswordSheet({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Sheet label="Changer mon mot de passe" onClose={onClose}>
+    <Sheet label="Changer mon mot de passe" onClose={onClose} centered>
       <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
         <h2 className="text-lg font-semibold tracking-tight">Changer mon mot de passe</h2>
         <button
