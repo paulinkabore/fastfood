@@ -1,5 +1,4 @@
 import { Link, Navigate, Route, Routes } from 'react-router-dom';
-import HomePage from './pages/HomePage';
 import ClientMenuPage from './pages/ClientMenuPage';
 import OrderTrackingPage from './pages/OrderTrackingPage';
 import LoginPage from './pages/LoginPage';
@@ -34,7 +33,7 @@ function NotFound() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
+      <Route path="/" element={<Navigate to="/connexion" replace />} />
       <Route path="/q/:token" element={<ClientMenuPage />} />
       <Route path="/commande/:orderId" element={<OrderTrackingPage />} />
       <Route path="/connexion" element={<LoginPage />} />
