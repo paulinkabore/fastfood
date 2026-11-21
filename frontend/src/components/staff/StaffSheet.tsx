@@ -5,7 +5,7 @@ import { generatePassword } from '../../features/admin/admin';
 import { MIN_PASSWORD_STAFF } from '../../lib/passwordPolicy';
 import { ASSIGNABLE, ROLE_INFO, type StaffRole } from '../../features/staff/staff';
 import { Sheet } from '../Sheet';
-import { CheckIcon, CloseIcon } from '../icons';
+import { CloseIcon } from '../icons';
 
 const field =
   'w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100';
@@ -69,35 +69,22 @@ export function StaffSheet({
 
       <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
         <div>
-          <p className="mb-2 text-sm font-semibold text-stone-700">Rôle</p>
-          <div className="space-y-2">
-            {ASSIGNABLE.map((r) => {
-              const info = ROLE_INFO[r];
-              const on = role === r;
-              return (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRole(r)}
-                  className={`flex w-full items-start gap-3 rounded-2xl border-2 p-3.5 text-left transition ${
-                    on ? 'border-brand-500 bg-brand-50' : 'border-stone-200 bg-white'
-                  }`}
-                >
-                  <span
-                    className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
-                      on ? 'border-brand-500 bg-brand-500 text-white' : 'border-stone-300'
-                    }`}
-                  >
-                    {on && <CheckIcon className="h-3.5 w-3.5" />}
-                  </span>
-                  <span>
-                    <span className="block font-medium">{info.label}</span>
-                    <span className="block text-sm text-stone-500">{info.text}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <label htmlFor="staff-role" className="mb-2 block text-sm font-semibold text-stone-700">
+            Rôle
+          </label>
+          <select
+            id="staff-role"
+            value={role}
+            onChange={(e) => setRole(e.target.value as StaffRole)}
+            className={field}
+          >
+            {ASSIGNABLE.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_INFO[r].label} (écran {ROLE_INFO[r].screen})
+              </option>
+            ))}
+          </select>
+          <p className="mt-2 text-sm text-stone-500">{ROLE_INFO[role].text}</p>
         </div>
 
         <input
