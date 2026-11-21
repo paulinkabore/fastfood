@@ -13,6 +13,7 @@ import { restaurantRouter } from './modules/restaurant/restaurant.routes';
 import { staffRouter } from './modules/staff/staff.routes';
 import { statsRouter } from './modules/stats/stats.routes';
 import { stockRouter } from './modules/stock/stock.routes';
+import { courierRouter } from './modules/courier/courier.routes';
 import { publicRouter } from './modules/public/public.routes';
 import { publicOrdersRouter } from './modules/public/orders.routes';
 import { publicPaymentsRouter, webhooksRouter } from './modules/payments/payments.routes';
@@ -55,6 +56,7 @@ app.use('/api/v1/restaurants/:restaurantId', restaurantRouter);
 app.use('/api/v1/restaurants/:restaurantId', staffRouter);
 app.use('/api/v1/restaurants/:restaurantId', statsRouter);
 app.use('/api/v1/restaurants/:restaurantId', stockRouter);
+app.use('/api/v1/restaurants/:restaurantId', courierRouter);
 
 // Fausse page de prestataire : développement uniquement
 if (env.NODE_ENV !== 'production' && env.PAYMENT_PROVIDER === 'mock') {

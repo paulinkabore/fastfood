@@ -18,6 +18,7 @@ enum MemberRole {
   CASHIER
   COOK
   WAITER
+  COURIER
 }
 
 enum QrType {
@@ -109,7 +110,8 @@ model User {
   updatedAt    DateTime   @updatedAt
 
   memberships    RestaurantMembership[]
-  ordersCreated  Order[]
+  ordersCreated  Order[]                @relation("OrderCreatedBy")
+  ordersDelivered Order[]               @relation("OrderCourier")
   openedSessions CashSession[]          @relation("CashOpenedBy")
   closedSessions CashSession[]          @relation("CashClosedBy")
   stockMovements StockMovement[]
@@ -260,6 +262,8 @@ model Order {
   idempotencyKey  String?
   stockDeductedAt DateTime?
   sentToKitchenAt DateTime?
+  courierId        String?
+  courierClaimedAt DateTime?
   cancelledReason String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -267,7 +271,8 @@ model Order {
   restaurant     Restaurant       @relation(fields: [restaurantId], references: [id])
   table          RestaurantTable? @relation(fields: [tableId], references: [id])
   qrCode         QrCode?          @relation(fields: [qrCodeId], references: [id])
-  createdBy      User?            @relation(fields: [createdById], references: [id])
+  createdBy      User?            @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  courier        User?            @relation("OrderCourier", fields: [courierId], references: [id])
   items          OrderItem[]
   payments       Payment[]
   stockMovements StockMovement[]
@@ -275,6 +280,7 @@ model Order {
   @@unique([restaurantId, number])
   @@unique([restaurantId, idempotencyKey])
   @@index([restaurantId, status])
+  @@index([restaurantId, courierId])
   @@map("orders")
 }
 

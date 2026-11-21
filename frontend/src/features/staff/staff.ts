@@ -1,4 +1,4 @@
-export type StaffRole = 'CASHIER' | 'COOK' | 'WAITER';
+export type StaffRole = 'CASHIER' | 'COOK' | 'WAITER' | 'COURIER';
 export type AnyRole = 'MANAGER' | StaffRole;
 
 export type StaffMember = {
@@ -9,7 +9,7 @@ export type StaffMember = {
   isActive: boolean;
 };
 
-export const ASSIGNABLE: StaffRole[] = ['CASHIER', 'COOK', 'WAITER'];
+export const ASSIGNABLE: StaffRole[] = ['CASHIER', 'COOK', 'WAITER', 'COURIER'];
 
 export const ROLE_INFO: Record<AnyRole, { label: string; screen: string; text: string; style: string }> = {
   MANAGER: {
@@ -35,5 +35,11 @@ export const ROLE_INFO: Record<AnyRole, { label: string; screen: string; text: s
     screen: 'Serveur',
     text: 'Voit les commandes par table et les marque servies.',
     style: 'bg-emerald-50 text-emerald-700',
+  },
+  COURIER: {
+    label: 'Livreur',
+    screen: 'Livreur',
+    text: 'Prend les livraisons en préparation et les remet aux clients.',
+    style: 'bg-rose-50 text-rose-700',
   },
 };

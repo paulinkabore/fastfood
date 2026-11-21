@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import KitchenPage from './pages/KitchenPage';
 import CashierPage from './pages/CashierPage';
 import ServicePage from './pages/ServicePage';
+import CourierPage from './pages/CourierPage';
 import TablesPage from './pages/gestion/TablesPage';
 import DeliveryPage from './pages/gestion/DeliveryPage';
 import AnnouncePage from './pages/AnnouncePage';
@@ -51,6 +52,7 @@ export default function App() {
       <Route path="/cuisine" element={<KitchenPage />} />
       <Route path="/caisse" element={<CashierPage />} />
       <Route path="/serveur" element={<ServicePage />} />
+      <Route path="/livreur" element={<CourierPage />} />
       <Route path="/service" element={<Navigate to="/serveur" replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

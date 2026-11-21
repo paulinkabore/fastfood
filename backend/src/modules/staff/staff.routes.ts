@@ -16,8 +16,8 @@ const rid = (req: Request) => req.membership!.restaurantId;
 const uid = (req: Request) => req.auth!.userId;
 
 // Le gérant crée et gère le personnel ; les comptes gérants dépendent de l'administration
-const ROLES = ['CASHIER', 'COOK', 'WAITER'] as const;
-// Les comptes créés ici sont ceux du personnel (cuisinier, caissier, serveur)
+const ROLES = ['CASHIER', 'COOK', 'WAITER', 'COURIER'] as const;
+// Les comptes créés ici sont ceux du personnel (cuisinier, caissier, serveur, livreur)
 const password = z.string().min(MIN_PASSWORD_STAFF, `Le mot de passe doit faire ${MIN_PASSWORD_STAFF} caractères au moins`).max(72);
 
 // ---------- Liste de l'équipe ----------

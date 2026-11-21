@@ -14,12 +14,16 @@ describe('accès par rôle', () => {
     expect(homeFor(user('CASHIER'))).toBe('/caisse');
     expect(homeFor(user('WAITER'))).toBe('/serveur');
     expect(homeFor(user('COOK'))).toBe('/cuisine');
+    expect(homeFor(user('COURIER'))).toBe('/livreur');
     expect(homeFor(user(null, 'SUPER_ADMIN'))).toBe('/admin');
   });
 
   it('un caissier ou un cuisinier ne peut pas ouvrir la gestion', () => {
     expect(canOpen(user('CASHIER'), '/gestion/statistiques')).toBe(false);
     expect(canOpen(user('COOK'), '/gestion/menu')).toBe(false);
+    expect(canOpen(user('COURIER'), '/livreur')).toBe(true);
+    expect(canOpen(user('COURIER'), '/caisse')).toBe(false);
+    expect(canOpen(user('WAITER'), '/livreur')).toBe(false);
     expect(canOpen(user('MANAGER'), '/gestion/menu')).toBe(true);
   });
 

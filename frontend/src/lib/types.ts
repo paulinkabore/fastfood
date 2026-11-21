@@ -22,7 +22,7 @@ export type PublicMenu = {
 
 export type OrderStatus = 'RECEIVED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
-export type MemberRole = 'MANAGER' | 'CASHIER' | 'COOK' | 'WAITER';
+export type MemberRole = 'MANAGER' | 'CASHIER' | 'COOK' | 'WAITER' | 'COURIER';
 
 export type OrderView = {
   id: string;

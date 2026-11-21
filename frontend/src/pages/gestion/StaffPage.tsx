@@ -9,7 +9,7 @@ import { ApiError } from '../../lib/api';
 import { authRequest } from '../../lib/auth';
 import { ROLE_INFO, type AnyRole, type StaffMember } from '../../features/staff/staff';
 
-const ORDER: AnyRole[] = ['MANAGER', 'CASHIER', 'COOK', 'WAITER'];
+const ORDER: AnyRole[] = ['MANAGER', 'CASHIER', 'COOK', 'WAITER', 'COURIER'];
 
 function Staff({ restaurantId }: { restaurantId: string }) {
   const base = `/restaurants/${restaurantId}`;
