@@ -16,7 +16,8 @@ export function useCashier(restaurantId: string, scope: CashierScope, number?: n
 
   const load = useCallback(async () => {
     try {
-      const [s, o] = await Promise.all([
+      // Deux demandes indépendantes : si la liste des commandes échoue, la caisse ouverte reste affichée
+      const [s, o] = await Promise.allSettled([
         authRequest<{ session: CashSessionView | null }>(
           `/restaurants/${restaurantId}/cash-sessions/current`,
         ),
@@ -24,9 +25,10 @@ export function useCashier(restaurantId: string, scope: CashierScope, number?: n
           `/restaurants/${restaurantId}/cashier/orders?scope=${scope}${scope === 'search' ? `&number=${number}` : ''}`,
         ),
       ]);
-      setSession(s.session);
-      setOrders(o.orders);
-      setError(null);
+      if (s.status === 'fulfilled') setSession(s.value.session);
+      if (o.status === 'fulfilled') setOrders(o.value.orders);
+      const failed = s.status === 'rejected' ? s.reason : o.status === 'rejected' ? o.reason : null;
+      setError(failed ? (failed instanceof ApiError ? failed.message : 'Erreur inattendue') : null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
     } finally {

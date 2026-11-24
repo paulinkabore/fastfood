@@ -278,6 +278,8 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
       await reload();
     } catch (e) {
       setActionError(e instanceof ApiError ? e.message : 'Erreur inattendue');
+      // La caisse est déjà ouverte : on recharge pour l'afficher au lieu de la montrer fermée
+      if (e instanceof ApiError && e.code === 'SESSION_ALREADY_OPEN') await reload();
     } finally {
       setOpening(false);
     }
