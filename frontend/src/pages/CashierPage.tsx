@@ -160,7 +160,22 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
   const navigate = useNavigate();
 
   const [scope, setScope] = useState<CashierScope>('unpaid');
-  const { session, orders, loading, error, live, reload } = useCashier(restaurantId, scope);
+  const [query, setQuery] = useState('');
+  const [searchNo, setSearchNo] = useState<number | undefined>(undefined);
+  // La recherche part 300 ms après la dernière frappe
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      const n = /^\d{1,8}$/.test(query.trim()) ? Number(query.trim()) : undefined;
+      setSearchNo(n && n > 0 ? n : undefined);
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [query]);
+  const searching = searchNo !== undefined;
+  const { session, orders, loading, error, live, reload } = useCashier(
+    restaurantId,
+    searching ? 'search' : scope,
+    searchNo,
+  );
 
   // Bip quand un nouveau paiement Mobile Money attend d'être validé
   const [soundOn, setSoundOn] = useState(false);
@@ -426,13 +441,33 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
 
         {/* Commandes */}
         <section>
-          <div className="mb-3 flex gap-2">
-            <button type="button" className={tab(scope === 'unpaid')} onClick={() => setScope('unpaid')}>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <button type="button" className={tab(!searching && scope === 'unpaid')} onClick={() => { setQuery(''); setScope('unpaid'); }}>
               À encaisser
             </button>
-            <button type="button" className={tab(scope === 'today')} onClick={() => setScope('today')}>
+            <button type="button" className={tab(!searching && scope === 'today')} onClick={() => { setQuery(''); setScope('today'); }}>
               Aujourd'hui
             </button>
+            <div className="relative min-w-[11rem] flex-1">
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                inputMode="numeric"
+                placeholder="Rechercher un ticket (n°)"
+                aria-label="Rechercher un ticket par son numéro"
+                className="w-full rounded-full border border-stone-200 bg-white py-2.5 pl-4 pr-10 text-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label="Effacer la recherche"
+                  className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full bg-stone-100 text-stone-500"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
 
           {loading ? (
@@ -443,7 +478,11 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
             </div>
           ) : orders.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-stone-300 px-4 py-10 text-center text-sm text-stone-400">
-              {scope === 'unpaid' ? 'Aucune commande à encaisser' : 'Aucune commande aujourd’hui'}
+              {searching
+                ? `Aucun ticket n° ${searchNo}`
+                : scope === 'unpaid'
+                  ? 'Aucune commande à encaisser'
+                  : 'Aucune commande aujourd’hui'}
             </p>
           ) : (
             <div className="grid gap-3 md:grid-cols-2">

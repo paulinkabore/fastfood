@@ -503,18 +503,27 @@ cashierRouter.get(
   '/cashier/orders',
   ...canCash,
   asyncHandler(async (req, res) => {
-    const { scope } = z
-      .object({ scope: z.enum(['unpaid', 'today']).default('unpaid') })
+    const { scope, number } = z
+      .object({
+        scope: z.enum(['unpaid', 'today', 'search']).default('unpaid'),
+        number: z.coerce.number().int().min(1).max(10_000_000).optional(),
+      })
       .parse(req.query);
     const restaurantId = rid(req);
 
     const startOfDay = new Date();
     startOfDay.setUTCHours(0, 0, 0, 0);
 
+    // Recherche d'un ticket par son numéro (unique dans le restaurant, quelle que soit la date)
+    if (scope === 'search' && number === undefined) {
+      throw new AppError(400, 'NUMBER_REQUIRED', 'Indiquez le numéro du ticket');
+    }
     const where =
-      scope === 'unpaid'
-        ? { restaurantId, paymentStatus: 'PENDING' as const, status: { not: 'CANCELLED' as const } }
-        : { restaurantId, createdAt: { gte: startOfDay } };
+      scope === 'search'
+        ? { restaurantId, number }
+        : scope === 'unpaid'
+          ? { restaurantId, paymentStatus: 'PENDING' as const, status: { not: 'CANCELLED' as const } }
+          : { restaurantId, createdAt: { gte: startOfDay } };
 
     const orders = await prisma.order.findMany({
       where,

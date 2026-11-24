@@ -5,9 +5,9 @@ import { ApiError } from '../../lib/api';
 import { authRequest, getAccessToken, refreshSession } from '../../lib/auth';
 import type { CashierOrder, CashSessionView } from '../../lib/types';
 
-export type CashierScope = 'unpaid' | 'today';
+export type CashierScope = 'unpaid' | 'today' | 'search';
 
-export function useCashier(restaurantId: string, scope: CashierScope) {
+export function useCashier(restaurantId: string, scope: CashierScope, number?: number) {
   const [session, setSession] = useState<CashSessionView | null>(null);
   const [orders, setOrders] = useState<CashierOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +21,7 @@ export function useCashier(restaurantId: string, scope: CashierScope) {
           `/restaurants/${restaurantId}/cash-sessions/current`,
         ),
         authRequest<{ orders: CashierOrder[] }>(
-          `/restaurants/${restaurantId}/cashier/orders?scope=${scope}`,
+          `/restaurants/${restaurantId}/cashier/orders?scope=${scope}${scope === 'search' ? `&number=${number}` : ''}`,
         ),
       ]);
       setSession(s.session);
@@ -32,7 +32,7 @@ export function useCashier(restaurantId: string, scope: CashierScope) {
     } finally {
       setLoading(false);
     }
-  }, [restaurantId, scope]);
+  }, [restaurantId, scope, number]);
 
   const loadRef = useRef(load);
   useEffect(() => {
