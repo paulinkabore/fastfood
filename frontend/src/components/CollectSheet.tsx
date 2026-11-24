@@ -28,7 +28,7 @@ export function CollectSheet({
   const [received, setReceived] = useState(String(order.totalFcfa));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ change: number | null; voucher: boolean } | null>(null);
+  const [done, setDone] = useState<{ change: number | null; voucher: boolean; code: string | null } | null>(null);
   const [voucher, setVoucher] = useState(false); // bon imprimé à l'écran de fin
 
   useEffect(() => {
@@ -53,11 +53,11 @@ export function CollectSheet({
     setBusy(true);
     setError(null);
     try {
-      const data = await authRequest<{ changeFcfa: number | null }>(
+      const data = await authRequest<{ changeFcfa: number | null; payment: { changeCode: string | null } }>(
         `/restaurants/${restaurantId}/orders/${order.id}/pay/cash`,
         { method: 'POST', body: JSON.stringify({ amountReceivedFcfa: amount, leaveChange }) },
       );
-      setDone({ change: data.changeFcfa, voucher: leaveChange });
+      setDone({ change: data.changeFcfa, voucher: leaveChange, code: data.payment.changeCode });
       if (leaveChange) setVoucher(true);
       onPaid();
     } catch (e) {
@@ -101,6 +101,11 @@ export function CollectSheet({
               <p className="text-3xl font-semibold tracking-tight text-amber-800">
                 {fcfa(done.change)}
               </p>
+              {done.voucher && done.code && (
+                <p className="mt-1 text-sm font-medium text-amber-700">
+                  Bon n° <span className="font-semibold tracking-widest">{done.code}</span>
+                </p>
+              )}
             </div>
           )}
           <div className="grid gap-2">
@@ -227,7 +232,7 @@ export function CollectSheet({
           </div>
         </>
       )}
-      {voucher && <ChangeVoucherTicket order={order} amountFcfa={done?.change ?? 0} />}
+      {voucher && <ChangeVoucherTicket order={order} amountFcfa={done?.change ?? 0} code={done?.code ?? null} />}
     </Sheet>
   );
 }

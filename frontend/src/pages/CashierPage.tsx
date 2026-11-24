@@ -118,7 +118,7 @@ function OrderRow({
       {owed && (
         <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
           <p className="text-sm font-medium text-amber-800">
-            Monnaie due au client
+            Monnaie due au client{owed.changeCode ? ` · bon ${owed.changeCode}` : ''}
             <span className="block text-lg font-semibold">{fcfa(owed.changeDueFcfa)}</span>
           </p>
           {!readOnly && (

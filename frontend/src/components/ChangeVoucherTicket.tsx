@@ -5,11 +5,16 @@ import { placeLabel } from '../lib/orderPlace';
 import type { CashierOrder } from '../lib/types';
 
 // Bon de monnaie : remis au client quand la caisse n'a pas pu rendre la monnaie
-export function ChangeVoucherTicket({ order, amountFcfa }: { order: CashierOrder; amountFcfa: number }) {
+export function ChangeVoucherTicket({ order, amountFcfa, code }: { order: CashierOrder; amountFcfa: number; code: string | null }) {
   const now = new Date();
   return createPortal(
     <div className="print-receipt" style={ticketFont}>
       <TicketHeader title="BON DE MONNAIE" restaurantName={order.restaurantName} />
+      {code && (
+        <p style={{ textAlign: 'center', fontWeight: 700, fontSize: '20px', letterSpacing: '3px', margin: '0 0 4px' }}>
+          N° {code}
+        </p>
+      )}
       <Row left="Commande n°" right={`#${order.number}`} bold size="14px" />
       <Row left="Date" right={dateFr(now)} />
       <Row left="Heure" right={timeShort(now)} />

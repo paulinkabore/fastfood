@@ -324,6 +324,7 @@ model Payment {
   refundSessionId   String?
   // Monnaie non rendue sur le moment : le client repart avec un bon, la caisse la remet plus tard
   changeDueFcfa          Int       @default(0)
+  changeCode             String?
   changeSettledAt        DateTime?
   changeSettledById      String?
   changeSettledSessionId String?

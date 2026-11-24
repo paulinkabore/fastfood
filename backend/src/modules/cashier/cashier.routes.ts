@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { Prisma, type CashSession, type MemberRole, type OrderStatus } from '@prisma/client';
@@ -98,6 +99,18 @@ const presentSession = (s: CashSession, t: Totals) => ({
   closingNote: s.closingNote,
 });
 
+// Numéro de bon : 6 caractères, lettres ET chiffres (sans O/0/I/1 pour éviter les confusions)
+const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+const DIGITS = '23456789';
+function newChangeCode(): string {
+  const all = LETTERS + DIGITS;
+  for (;;) {
+    let code = '';
+    for (let i = 0; i < 6; i++) code += all[randomInt(all.length)];
+    if (/[A-Z]/.test(code) && /[2-9]/.test(code)) return code;
+  }
+}
+
 const presentPayment = (p: {
   id: string;
   method: string;
@@ -106,6 +119,7 @@ const presentPayment = (p: {
   receiptNumber: number | null;
   confirmedAt: Date | null;
   changeDueFcfa?: number;
+  changeCode?: string | null;
   changeSettledAt?: Date | null;
 }) => ({
   id: p.id,
@@ -115,6 +129,7 @@ const presentPayment = (p: {
   receiptNumber: p.receiptNumber,
   confirmedAt: p.confirmedAt,
   changeDueFcfa: p.changeDueFcfa ?? 0,
+  changeCode: p.changeCode ?? null,
   changeSettledAt: p.changeSettledAt ?? null,
 });
 
@@ -130,6 +145,7 @@ const cashierInclude = {
       receiptNumber: true,
       confirmedAt: true,
       changeDueFcfa: true,
+      changeCode: true,
       changeSettledAt: true,
     },
   },
@@ -323,6 +339,17 @@ async function collectCash(opts: {
       throw new AppError(400, 'AMOUNT_TOO_LOW', 'Le montant reçu est inférieur au total');
     }
 
+    let changeCode: string | null = null;
+    if (opts.leaveChange) {
+      for (let i = 0; i < 10 && !changeCode; i++) {
+        const c = newChangeCode();
+        const taken = await tx.payment.findFirst({
+          where: { restaurantId: opts.restaurantId, changeCode: c },
+          select: { id: true },
+        });
+        if (!taken) changeCode = c;
+      }
+    }
     const changeDue =
       opts.leaveChange && opts.amountReceivedFcfa !== undefined
         ? opts.amountReceivedFcfa - order.totalFcfa
@@ -349,6 +376,7 @@ async function collectCash(opts: {
       confirmedById: opts.userId,
       receiptNumber,
       changeDueFcfa: changeDue,
+      changeCode: changeDue > 0 ? changeCode : null,
     };
     const payment = pending
       ? await tx.payment.update({ where: { id: pending.id }, data })

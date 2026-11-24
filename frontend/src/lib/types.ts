@@ -65,6 +65,7 @@ export type CashierOrder = OrderView & {
     receiptNumber: number | null;
     confirmedAt: string | null;
     changeDueFcfa: number;
+    changeCode: string | null;
     changeSettledAt: string | null;
   }[];
 };
