@@ -58,6 +58,8 @@ function OrderRow({
   onName,
   onPrint,
   onReceipt,
+  onSettle,
+  settling,
 }: {
   order: CashierOrder;
   hasSession: boolean;
@@ -67,6 +69,8 @@ function OrderRow({
   onName: () => void;
   onPrint: () => void;
   onReceipt: () => void;
+  onSettle: () => void;
+  settling: boolean;
 }) {
   const st = STATUS[order.status];
   const pay = PAYMENT[order.paymentStatus];
@@ -74,6 +78,7 @@ function OrderRow({
   const payerPhone = order.payments.find((p) => p.method === 'MOBILE_MONEY' && p.status === 'PENDING')?.payerPhone;
   const canPay = !readOnly && !toVerify && order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED';
   const hasReceipt = order.paymentStatus === 'PAID' || order.paymentStatus === 'REFUNDED';
+  const owed = order.payments.find((x) => x.status === 'PAID' && x.changeDueFcfa > 0 && !x.changeSettledAt);
   const summary = order.items.map((i) => `${i.quantity} × ${i.productName}`).join(', ');
 
   return (
@@ -108,6 +113,26 @@ function OrderRow({
         <p className="mt-2 text-sm text-stone-600">
           Déposant : <strong className="text-stone-900">{payerPhone}</strong>
         </p>
+      )}
+
+      {owed && (
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
+          <p className="text-sm font-medium text-amber-800">
+            Monnaie due au client
+            <span className="block text-lg font-semibold">{fcfa(owed.changeDueFcfa)}</span>
+          </p>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={onSettle}
+              disabled={!hasSession || settling}
+              title={hasSession ? undefined : 'Ouvrez votre caisse'}
+              className="rounded-2xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-amber-500/25 transition active:scale-[0.97] disabled:opacity-50"
+            >
+              {settling ? 'Un instant…' : 'Monnaie remise'}
+            </button>
+          )}
+        </div>
       )}
 
       <div className="mt-3 flex items-center justify-between gap-3">
@@ -260,6 +285,24 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
   const [closing, setClosing] = useState<CashSessionView | null>(null);
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const [counterOpen, setCounterOpen] = useState(false);
+  const [settlingId, setSettlingId] = useState<string | null>(null);
+
+  const settle = async (o: CashierOrder) => {
+    if (settlingId) return;
+    setSettlingId(o.id);
+    setActionError(null);
+    try {
+      await authRequest(`/restaurants/${restaurantId}/orders/${o.id}/change/settle`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      await reload();
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : 'Erreur inattendue');
+    } finally {
+      setSettlingId(null);
+    }
+  };
 
   const [float, setFloat] = useState('');
   const [opening, setOpening] = useState(false);
@@ -447,6 +490,9 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
             <button type="button" className={tab(!searching && scope === 'unpaid')} onClick={() => { setQuery(''); setScope('unpaid'); }}>
               À encaisser
             </button>
+            <button type="button" className={tab(!searching && scope === 'change')} onClick={() => { setQuery(''); setScope('change'); }}>
+              Monnaie due
+            </button>
             <button type="button" className={tab(!searching && scope === 'today')} onClick={() => { setQuery(''); setScope('today'); }}>
               Aujourd'hui
             </button>
@@ -482,6 +528,8 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
             <p className="rounded-2xl border border-dashed border-stone-300 px-4 py-10 text-center text-sm text-stone-400">
               {searching
                 ? `Aucun ticket n° ${searchNo}`
+                : scope === 'change'
+                  ? 'Aucune monnaie due'
                 : scope === 'unpaid'
                   ? 'Aucune commande à encaisser'
                   : 'Aucune commande aujourd’hui'}
@@ -501,6 +549,8 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
                   onName={() => setNaming(o)}
                   onPrint={() => setTicket(o)}
                   onReceipt={() => setReceiptId(o.id)}
+                  onSettle={() => void settle(o)}
+                  settling={settlingId === o.id}
                 />
               ))}
             </div>

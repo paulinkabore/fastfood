@@ -46,7 +46,7 @@ async function requireOpenSession(db: Db, restaurantId: string, userId: string) 
 
 // ---------- Totaux d'une caisse ----------
 async function sessionTotals(db: Db, session: { id: string; openingFloatFcfa: number }) {
-  const [collected, refunded] = await Promise.all([
+  const [collected, refunded, held, settled] = await Promise.all([
     db.payment.aggregate({
       where: { cashSessionId: session.id, method: 'CASH', confirmedAt: { not: null } },
       _sum: { amountFcfa: true },
@@ -57,16 +57,30 @@ async function sessionTotals(db: Db, session: { id: string; openingFloatFcfa: nu
       _sum: { amountFcfa: true },
       _count: true,
     }),
+    // Monnaie gardée dans le tiroir quand le client est parti avec un bon
+    db.payment.aggregate({
+      where: { cashSessionId: session.id, changeDueFcfa: { gt: 0 } },
+      _sum: { changeDueFcfa: true },
+    }),
+    // Monnaie remise en échange d'un bon, sortie du tiroir de cette caisse
+    db.payment.aggregate({
+      where: { changeSettledSessionId: session.id },
+      _sum: { changeDueFcfa: true },
+    }),
   ]);
   const collectedFcfa = collected._sum.amountFcfa ?? 0;
   const refundedFcfa = refunded._sum.amountFcfa ?? 0;
+  const changeHeldFcfa = held._sum.changeDueFcfa ?? 0;
+  const changeSettledFcfa = settled._sum.changeDueFcfa ?? 0;
   return {
     collectedFcfa,
     collectedCount: collected._count,
     refundedFcfa,
     refundedCount: refunded._count,
+    changeHeldFcfa,
+    changeSettledFcfa,
     // Argent qui doit se trouver dans le tiroir
-    expectedFcfa: session.openingFloatFcfa + collectedFcfa - refundedFcfa,
+    expectedFcfa: session.openingFloatFcfa + collectedFcfa - refundedFcfa + changeHeldFcfa - changeSettledFcfa,
   };
 }
 
@@ -91,6 +105,8 @@ const presentPayment = (p: {
   amountFcfa: number;
   receiptNumber: number | null;
   confirmedAt: Date | null;
+  changeDueFcfa?: number;
+  changeSettledAt?: Date | null;
 }) => ({
   id: p.id,
   method: p.method,
@@ -98,6 +114,8 @@ const presentPayment = (p: {
   amountFcfa: p.amountFcfa,
   receiptNumber: p.receiptNumber,
   confirmedAt: p.confirmedAt,
+  changeDueFcfa: p.changeDueFcfa ?? 0,
+  changeSettledAt: p.changeSettledAt ?? null,
 });
 
 const cashierInclude = {
@@ -111,6 +129,8 @@ const cashierInclude = {
       payerPhone: true,
       receiptNumber: true,
       confirmedAt: true,
+      changeDueFcfa: true,
+      changeSettledAt: true,
     },
   },
 } satisfies Prisma.OrderInclude;
@@ -270,6 +290,8 @@ async function collectCash(opts: {
   orderId: string;
   userId: string;
   amountReceivedFcfa?: number;
+  // Pas de monnaie à rendre : la différence devient un bon remis au client
+  leaveChange?: boolean;
 }) {
   return prisma.$transaction(async (tx) => {
     await lockRestaurant(tx, opts.restaurantId);
@@ -301,6 +323,14 @@ async function collectCash(opts: {
       throw new AppError(400, 'AMOUNT_TOO_LOW', 'Le montant reçu est inférieur au total');
     }
 
+    const changeDue =
+      opts.leaveChange && opts.amountReceivedFcfa !== undefined
+        ? opts.amountReceivedFcfa - order.totalFcfa
+        : 0;
+    if (opts.leaveChange && changeDue <= 0) {
+      throw new AppError(400, 'NO_CHANGE_DUE', 'Il n’y a pas de monnaie à rendre sur cet encaissement');
+    }
+
     // Numéro de reçu suivant (le verrou garantit qu'il est unique)
     const last = await tx.payment.aggregate({
       where: { restaurantId: opts.restaurantId },
@@ -318,6 +348,7 @@ async function collectCash(opts: {
       confirmedAt: new Date(),
       confirmedById: opts.userId,
       receiptNumber,
+      changeDueFcfa: changeDue,
     };
     const payment = pending
       ? await tx.payment.update({ where: { id: pending.id }, data })
@@ -347,6 +378,7 @@ async function collectCash(opts: {
           amountFcfa: order.totalFcfa,
           receiptNumber,
           cashSessionId: session.id,
+          ...(changeDue > 0 ? { changeVoucherFcfa: changeDue } : {}),
         },
       },
     });
@@ -365,8 +397,11 @@ cashierRouter.post(
   '/orders/:orderId/pay/cash',
   ...cashierOnly,
   asyncHandler(async (req, res) => {
-    const { amountReceivedFcfa } = z
-      .object({ amountReceivedFcfa: z.number().int().min(0).max(100_000_000).optional() })
+    const { amountReceivedFcfa, leaveChange } = z
+      .object({
+        amountReceivedFcfa: z.number().int().min(0).max(100_000_000).optional(),
+        leaveChange: z.boolean().optional(),
+      })
       .parse(req.body ?? {});
 
     const result = await collectCash({
@@ -374,6 +409,7 @@ cashierRouter.post(
       orderId: String(req.params.orderId),
       userId: uid(req),
       amountReceivedFcfa,
+      leaveChange,
     });
     if (!result.unchanged) void emitOrderUpdated(result.order.id);
 
@@ -505,7 +541,7 @@ cashierRouter.get(
   asyncHandler(async (req, res) => {
     const { scope, number } = z
       .object({
-        scope: z.enum(['unpaid', 'today', 'search']).default('unpaid'),
+        scope: z.enum(['unpaid', 'today', 'search', 'change']).default('unpaid'),
         number: z.coerce.number().int().min(1).max(10_000_000).optional(),
       })
       .parse(req.query);
@@ -521,6 +557,11 @@ cashierRouter.get(
     const where =
       scope === 'search'
         ? { restaurantId, number }
+        : scope === 'change'
+          ? {
+              restaurantId,
+              payments: { some: { status: 'PAID' as const, changeDueFcfa: { gt: 0 }, changeSettledAt: null } },
+            }
         : scope === 'unpaid'
           ? { restaurantId, paymentStatus: 'PENDING' as const, status: { not: 'CANCELLED' as const } }
           : { restaurantId, createdAt: { gte: startOfDay } };
@@ -660,6 +701,52 @@ cashierRouter.post(
 );
 
 // ================= Remboursement (gérant) =================
+// Le client revient avec son bon : le caissier lui remet la monnaie, qui sort de SA caisse
+cashierRouter.post(
+  '/orders/:orderId/change/settle',
+  ...cashierOnly,
+  asyncHandler(async (req, res) => {
+    const restaurantId = rid(req);
+    const orderId = String(req.params.orderId);
+
+    const result = await prisma.$transaction(async (tx) => {
+      await lockRestaurant(tx, restaurantId);
+      const session = await requireOpenSession(tx, restaurantId, uid(req));
+
+      const payment = await tx.payment.findFirst({
+        where: { orderId, restaurantId, status: 'PAID', changeDueFcfa: { gt: 0 } },
+      });
+      if (!payment) throw new AppError(404, 'NOT_FOUND', 'Aucune monnaie due pour cette commande');
+      if (payment.changeSettledAt) {
+        throw new AppError(409, 'CHANGE_ALREADY_GIVEN', 'La monnaie de ce bon a déjà été remise');
+      }
+
+      const updated = await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          changeSettledAt: new Date(),
+          changeSettledById: uid(req),
+          changeSettledSessionId: session.id,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          restaurantId,
+          userId: uid(req),
+          action: 'CHANGE_SETTLED',
+          entity: 'Payment',
+          entityId: payment.id,
+          details: { orderId, amountFcfa: payment.changeDueFcfa, cashSessionId: session.id },
+        },
+      });
+      return updated;
+    });
+
+    void emitOrderUpdated(orderId);
+    res.json({ payment: presentPayment(result) });
+  }),
+);
+
 cashierRouter.post(
   '/orders/:orderId/refund',
   ...canManage,
@@ -682,6 +769,13 @@ cashierRouter.post(
         where: { orderId: order.id, status: 'PAID', method: { in: ['CASH', 'MOBILE_MONEY'] } },
       });
       if (!payment) throw new AppError(409, 'NOT_PAID', 'Aucun paiement à rembourser');
+      if (payment.changeDueFcfa > 0 && !payment.changeSettledAt) {
+        throw new AppError(
+          409,
+          'CHANGE_DUE',
+          'Une monnaie est encore due au client sur cette commande : la caisse doit d’abord la remettre',
+        );
+      }
 
       // Espèces : l'argent sort de la caisse du caissier qui avait encaissé, si elle est encore ouverte ;
       // sinon, de la caisse ouverte du gérant. Mobile Money : rien ne sort du tiroir-caisse, le gérant

@@ -122,6 +122,14 @@ export function CloseSessionSheet({
                 <span className="text-stone-500">Remboursé ({session.refundedCount})</span>
                 <span className="font-semibold">− {fcfa(session.refundedFcfa)}</span>
               </p>
+              {(session.changeHeldFcfa > 0 || session.changeSettledFcfa > 0) && (
+                <p className={row}>
+                  <span className="text-stone-500">Monnaie due / remise (bons)</span>
+                  <span className="font-semibold">
+                    + {fcfa(session.changeHeldFcfa)} / − {fcfa(session.changeSettledFcfa)}
+                  </span>
+                </p>
+              )}
               <p className={row}>
                 <span className="font-medium text-stone-700">Argent attendu</span>
                 <span className="text-base font-semibold">{fcfa(session.expectedFcfa)}</span>

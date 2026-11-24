@@ -322,6 +322,11 @@ model Payment {
   refundedAt        DateTime?
   refundedById      String?
   refundSessionId   String?
+  // Monnaie non rendue sur le moment : le client repart avec un bon, la caisse la remet plus tard
+  changeDueFcfa          Int       @default(0)
+  changeSettledAt        DateTime?
+  changeSettledById      String?
+  changeSettledSessionId String?
   payerPhone        String?
   checkoutUrl       String?
   failureReason     String?

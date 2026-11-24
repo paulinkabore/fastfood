@@ -12,11 +12,10 @@ export function ProductSheet({
 }: {
   product: MenuProduct;
   onClose: () => void;
-  onAdd: (quantity: number, options: MenuOption[], notes: string) => void;
+  onAdd: (quantity: number, options: MenuOption[]) => void;
 }) {
   const [quantity, setQuantity] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
-  const [notes, setNotes] = useState('');
 
   const chosen = product.options.filter((o) => selected.includes(o.id));
   const unit = product.priceFcfa + chosen.reduce((sum, o) => sum + o.priceDeltaFcfa, 0);
@@ -89,28 +88,13 @@ export function ProductSheet({
             </ul>
           </div>
         )}
-
-        <div>
-          <label htmlFor="note" className="mb-2 block text-sm font-semibold text-stone-700">
-            Note pour la cuisine
-          </label>
-          <textarea
-            id="note"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            maxLength={200}
-            rows={2}
-            placeholder="Ex. sans oignon, bien cuit…"
-            className="w-full resize-none rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100"
-          />
-        </div>
       </div>
 
       <div className="flex items-center gap-3 border-t border-stone-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <Stepper value={quantity} onChange={setQuantity} />
         <button
           type="button"
-          onClick={() => onAdd(quantity, chosen, notes)}
+          onClick={() => onAdd(quantity, chosen)}
           className="flex-1 rounded-2xl bg-brand-500 px-5 py-3.5 font-semibold text-white shadow-lg shadow-brand-500/30 transition hover:bg-brand-600 active:scale-[0.98]"
         >
           Ajouter · {fcfa(unit * quantity)}

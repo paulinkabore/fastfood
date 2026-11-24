@@ -236,14 +236,6 @@ export function CounterOrderSheet({
                   </li>
                 ))}
               </ul>
-              <textarea
-                value={cart.notes}
-                onChange={(e) => cart.setNotes(e.target.value)}
-                maxLength={300}
-                rows={2}
-                placeholder="Remarque pour la commande (facultatif)"
-                className="mt-3 w-full resize-none rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm outline-none focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-100"
-              />
             </div>
           )}
 
@@ -298,8 +290,8 @@ export function CounterOrderSheet({
         <ProductSheet
           product={selected}
           onClose={() => setSelected(null)}
-          onAdd={(quantity, options, notes) => {
-            cart.add(selected, quantity, options, notes);
+          onAdd={(quantity, options) => {
+            cart.add(selected, quantity, options, '');
             setSelected(null);
           }}
         />

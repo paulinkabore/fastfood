@@ -5,7 +5,7 @@ import { ApiError } from '../../lib/api';
 import { authRequest, getAccessToken, refreshSession } from '../../lib/auth';
 import type { CashierOrder, CashSessionView } from '../../lib/types';
 
-export type CashierScope = 'unpaid' | 'today' | 'search';
+export type CashierScope = 'unpaid' | 'today' | 'search' | 'change';
 
 export function useCashier(restaurantId: string, scope: CashierScope, number?: number) {
   const [session, setSession] = useState<CashSessionView | null>(null);

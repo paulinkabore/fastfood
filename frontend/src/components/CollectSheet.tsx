@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '../lib/api';
 import { authRequest } from '../lib/auth';
 import { fcfa, parseAmount } from '../lib/format';
@@ -6,6 +6,8 @@ import type { CashierOrder } from '../lib/types';
 import { Sheet } from './Sheet';
 import { CheckIcon, CloseIcon } from './icons';
 import { placeLabel } from '../lib/orderPlace';
+import { ChangeVoucherTicket } from './ChangeVoucherTicket';
+import { printTicket } from '../lib/print';
 
 const BILLS = [1000, 2000, 5000, 10000];
 
@@ -26,14 +28,26 @@ export function CollectSheet({
   const [received, setReceived] = useState(String(order.totalFcfa));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ change: number | null } | null>(null);
+  const [done, setDone] = useState<{ change: number | null; voucher: boolean } | null>(null);
+  const [voucher, setVoucher] = useState(false); // bon imprimé à l'écran de fin
+
+  useEffect(() => {
+    if (!voucher) return;
+    const end = () => setVoucher(false);
+    window.addEventListener('afterprint', end);
+    const t = window.setTimeout(printTicket, 150);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('afterprint', end);
+    };
+  }, [voucher]);
 
   const amount = parseAmount(received);
   const change = amount - order.totalFcfa;
   const valid = amount >= order.totalFcfa;
   const quick = [order.totalFcfa, ...BILLS.filter((b) => b > order.totalFcfa)];
 
-  const confirm = async () => {
+  const confirm = async (leaveChange = false) => {
     if (lock.current || !valid) return;
     lock.current = true;
     setBusy(true);
@@ -41,9 +55,10 @@ export function CollectSheet({
     try {
       const data = await authRequest<{ changeFcfa: number | null }>(
         `/restaurants/${restaurantId}/orders/${order.id}/pay/cash`,
-        { method: 'POST', body: JSON.stringify({ amountReceivedFcfa: amount }) },
+        { method: 'POST', body: JSON.stringify({ amountReceivedFcfa: amount, leaveChange }) },
       );
-      setDone({ change: data.changeFcfa });
+      setDone({ change: data.changeFcfa, voucher: leaveChange });
+      if (leaveChange) setVoucher(true);
       onPaid();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
@@ -80,13 +95,24 @@ export function CollectSheet({
           </div>
           {done.change !== null && done.change > 0 && (
             <div className="rounded-2xl bg-amber-50 px-4 py-4">
-              <p className="text-sm font-medium text-amber-700">Monnaie à rendre</p>
+              <p className="text-sm font-medium text-amber-700">
+                {done.voucher ? 'Monnaie due : bon remis au client' : 'Monnaie à rendre'}
+              </p>
               <p className="text-3xl font-semibold tracking-tight text-amber-800">
                 {fcfa(done.change)}
               </p>
             </div>
           )}
           <div className="grid gap-2">
+            {done.voucher && (
+              <button
+                type="button"
+                onClick={() => setVoucher(true)}
+                className="rounded-2xl bg-amber-500 px-5 py-3.5 font-semibold text-white shadow-lg shadow-amber-500/25 transition active:scale-[0.98]"
+              >
+                Réimprimer le bon de monnaie
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -179,10 +205,20 @@ export function CollectSheet({
             )}
           </div>
 
-          <div className="border-t border-stone-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="space-y-2 border-t border-stone-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {valid && change > 0 && (
+              <button
+                type="button"
+                onClick={() => void confirm(true)}
+                disabled={busy}
+                className="w-full rounded-2xl bg-amber-50 px-5 py-3.5 font-semibold text-amber-800 ring-1 ring-amber-200 transition active:scale-[0.98] disabled:opacity-50"
+              >
+                Pas de monnaie : imprimer un bon de {fcfa(change)}
+              </button>
+            )}
             <button
               type="button"
-              onClick={confirm}
+              onClick={() => void confirm(false)}
               disabled={!valid || busy}
               className="w-full rounded-2xl bg-brand-500 px-5 py-4 font-semibold text-white shadow-lg shadow-brand-500/30 transition hover:bg-brand-600 active:scale-[0.98] disabled:opacity-50"
             >
@@ -191,6 +227,7 @@ export function CollectSheet({
           </div>
         </>
       )}
+      {voucher && <ChangeVoucherTicket order={order} amountFcfa={done?.change ?? 0} />}
     </Sheet>
   );
 }
