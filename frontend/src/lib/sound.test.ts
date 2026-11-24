@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readyAnnouncement } from './sound';
+import { readyAnnouncement, speakableName } from './sound';
 
 describe('annonce vocale', () => {
   it('dit la commande de la table suivie de son numéro', () => {
@@ -20,6 +20,15 @@ describe('annonce vocale', () => {
     );
     expect(readyAnnouncement({ number: 4, type: 'DELIVERY', tableLabel: null })).toBe(
       'La commande de livraison numéro 4 est prête',
+    );
+  });
+
+  it('ne fait pas épeler un nom écrit en majuscules', () => {
+    expect(speakableName('KABORE PAULIN')).toBe('Kabore Paulin');
+    expect(speakableName('  jean-marc  ouedraogo ')).toBe('Jean-Marc Ouedraogo');
+    expect(speakableName("N'DIAYE")).toBe("N'Diaye");
+    expect(readyAnnouncement({ number: 5, type: 'TAKEAWAY', tableLabel: null, customerName: 'KABORE' })).toBe(
+      'La commande de Kabore est prête',
     );
   });
 });

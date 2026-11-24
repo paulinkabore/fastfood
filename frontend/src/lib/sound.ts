@@ -55,6 +55,16 @@ type Announced = {
   customerName?: string | null;
 };
 
+// Nom prononçable : « KABORE » en majuscules serait épelé lettre par lettre par la synthèse vocale,
+// on le met donc en « Kabore »
+export function speakableName(name: string): string {
+  return name
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('fr')
+    .replace(/(^|[\s'’-])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toLocaleUpperCase('fr'));
+}
+
 // Phrase dite à voix haute : « La commande de la table 5 est prête »
 // (le mot « Table » du libellé n'est pas répété)
 export function readyAnnouncement(o: Announced): string {
@@ -63,7 +73,7 @@ export function readyAnnouncement(o: Announced): string {
     return `La commande de la table ${table} est prête`;
   }
   if (o.type === 'TAKEAWAY' && o.customerName) {
-    return `La commande de ${o.customerName} est prête`;
+    return `La commande de ${speakableName(o.customerName)} est prête`;
   }
   const mode = o.type === 'DELIVERY' ? 'de livraison' : 'à emporter';
   return `La commande ${mode} numéro ${o.number} est prête`;
