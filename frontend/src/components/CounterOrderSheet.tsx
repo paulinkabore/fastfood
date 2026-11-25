@@ -13,7 +13,7 @@ import type {
   StaffProduct,
   StaffTable,
 } from '../lib/types';
-import { ChangeVoucherPanel } from './ChangeVoucherPanel';
+import { ChangeVoucherPanel, useVoucher } from './ChangeVoucherPanel';
 import { Logo } from './Logo';
 import { ProductSheet } from './ProductSheet';
 import { Sheet } from './Sheet';
@@ -224,6 +224,7 @@ export function CounterOrderSheet({
   };
 
   const visibleCats = categories.filter((c) => products.some((p) => p.categoryId === c.id));
+  const voucher = useVoucher(Math.max(0, change));
   const quick = [total, ...BILLS.filter((b) => b > total)];
 
   return createPortal(
@@ -483,6 +484,7 @@ export function CounterOrderSheet({
                     ))}
                   </div>
                 </div>
+                {validAmount && change > 0 && <ChangeVoucherPanel change={change} voucher={voucher} />}
                 <div
                   className={`rounded-2xl px-4 py-3 ${
                     validAmount ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
@@ -555,17 +557,10 @@ export function CounterOrderSheet({
               </>
             ) : paying ? (
               <>
-                {validAmount && change > 0 && (
-                  <ChangeVoucherPanel
-                    change={change}
-                    busy={busy}
-                    onPrint={(v) => void submit(true, { amountReceivedFcfa: amount, voucherFcfa: v })}
-                  />
-                )}
                 <button
                   type="button"
-                  onClick={() => void submit(true, { amountReceivedFcfa: amount })}
-                  disabled={busy || !validAmount}
+                  onClick={() => void submit(true, { amountReceivedFcfa: amount, voucherFcfa: voucher.amount })}
+                  disabled={busy || !validAmount || !voucher.valid}
                   className="w-full rounded-2xl bg-brand-500 px-5 py-4 font-semibold text-white shadow-lg shadow-brand-500/30 transition active:scale-[0.98] disabled:opacity-50"
                 >
                   {busy ? 'Enregistrement…' : `Confirmer l’encaissement · ${fcfa(total)}`}

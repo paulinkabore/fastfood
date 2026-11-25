@@ -10,7 +10,7 @@ import { BillTicket } from '../components/BillTicket';
 import { ChangeVoucherTicket } from '../components/ChangeVoucherTicket';
 import { CustomerNameSheet } from '../components/CustomerNameSheet';
 import { MobileMoneySheet } from '../components/MobileMoneySheet';
-import { ReceiptSheet } from '../components/ReceiptSheet';
+import { ReceiptPrint, ReceiptSheet } from '../components/ReceiptSheet';
 import { awaitingValidation } from '../lib/mobileMoney';
 import { printTicket } from '../lib/print';
 import { beep, unlockAudio } from '../lib/sound';
@@ -281,10 +281,16 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
   }, [ticket]);
 
   // Bon de monnaie imprimé juste après une prise de commande payée au comptoir
-  const [voucherJob, setVoucherJob] = useState<{ order: OrderView; amountFcfa: number; code: string | null } | null>(null);
+  const [voucherJob, setVoucherJob] = useState<{
+    order: OrderView;
+    amountFcfa: number;
+    code: string | null;
+    step: 'voucher' | 'receipt';
+  } | null>(null);
   useEffect(() => {
-    if (!voucherJob) return;
-    const done = () => setVoucherJob(null);
+    if (voucherJob?.step !== 'voucher') return;
+    // Le bon s'imprime d'abord, puis le reçu de caisse
+    const done = () => setVoucherJob((j) => (j ? { ...j, step: 'receipt' } : j));
     window.addEventListener('afterprint', done);
     const t = window.setTimeout(printTicket, 150);
     return () => {
@@ -583,8 +589,11 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
       )}
 
       {ticket && <BillTicket order={ticket} />}
-      {voucherJob && (
+      {voucherJob?.step === 'voucher' && (
         <ChangeVoucherTicket order={voucherJob.order} amountFcfa={voucherJob.amountFcfa} code={voucherJob.code} />
+      )}
+      {voucherJob?.step === 'receipt' && (
+        <ReceiptPrint restaurantId={restaurantId} orderId={voucherJob.order.id} onDone={() => setVoucherJob(null)} />
       )}
 
       {naming && (
@@ -622,8 +631,8 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
           onCreated={({ orderId, paid, order, voucher }: CounterResult) => {
             setCounterOpen(false);
             void reload();
-            if (paid) setReceiptId(orderId);
-            if (voucher) setVoucherJob({ order, ...voucher });
+            if (voucher) setVoucherJob({ order, ...voucher, step: 'voucher' });
+            else if (paid) setReceiptId(orderId);
           }}
         />
       )}

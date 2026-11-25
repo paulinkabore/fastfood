@@ -6,7 +6,8 @@ import type { CashierOrder } from '../lib/types';
 import { Sheet } from './Sheet';
 import { CheckIcon, CloseIcon } from './icons';
 import { placeLabel } from '../lib/orderPlace';
-import { ChangeVoucherPanel } from './ChangeVoucherPanel';
+import { ChangeVoucherPanel, useVoucher } from './ChangeVoucherPanel';
+import { ReceiptPrint } from './ReceiptSheet';
 import { ChangeVoucherTicket } from './ChangeVoucherTicket';
 import { printTicket } from '../lib/print';
 
@@ -30,22 +31,24 @@ export function CollectSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ change: number | null; voucher: number | null; code: string | null } | null>(null);
-  const [voucher, setVoucher] = useState(false); // bon imprimé à l'écran de fin
+  // Impression automatique : d'abord le bon de monnaie, puis le reçu de caisse
+  const [printStep, setPrintStep] = useState<null | 'voucher' | 'receipt'>(null);
 
   useEffect(() => {
-    if (!voucher) return;
-    const end = () => setVoucher(false);
+    if (printStep !== 'voucher') return;
+    const end = () => setPrintStep('receipt');
     window.addEventListener('afterprint', end);
     const t = window.setTimeout(printTicket, 150);
     return () => {
       window.clearTimeout(t);
       window.removeEventListener('afterprint', end);
     };
-  }, [voucher]);
+  }, [printStep]);
 
   const amount = parseAmount(received);
   const change = amount - order.totalFcfa;
   const valid = amount >= order.totalFcfa;
+  const voucher = useVoucher(Math.max(0, change));
   const quick = [order.totalFcfa, ...BILLS.filter((b) => b > order.totalFcfa)];
 
   const confirm = async (voucherFcfa?: number) => {
@@ -63,7 +66,7 @@ export function CollectSheet({
         voucher: voucherFcfa ?? null,
         code: data.payment.changeCode,
       });
-      if (voucherFcfa) setVoucher(true);
+      if (voucherFcfa) setPrintStep('voucher');
       onPaid();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
@@ -122,10 +125,10 @@ export function CollectSheet({
             {done.voucher && (
               <button
                 type="button"
-                onClick={() => setVoucher(true)}
+                onClick={() => setPrintStep('voucher')}
                 className="rounded-2xl bg-amber-500 px-5 py-3.5 font-semibold text-white shadow-lg shadow-amber-500/25 transition active:scale-[0.98]"
               >
-                Réimprimer le bon de monnaie
+                Réimprimer le bon et le reçu
               </button>
             )}
             <button
@@ -198,6 +201,8 @@ export function CollectSheet({
               </div>
             </div>
 
+            {valid && change > 0 && <ChangeVoucherPanel change={change} voucher={voucher} />}
+
             <div
               className={`rounded-2xl px-4 py-3 ${
                 valid ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
@@ -221,13 +226,10 @@ export function CollectSheet({
           </div>
 
           <div className="space-y-2 border-t border-stone-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            {valid && change > 0 && (
-              <ChangeVoucherPanel change={change} busy={busy} onPrint={(v) => void confirm(v)} />
-            )}
             <button
               type="button"
-              onClick={() => void confirm()}
-              disabled={!valid || busy}
+              onClick={() => void confirm(voucher.amount)}
+              disabled={!valid || busy || !voucher.valid}
               className="w-full rounded-2xl bg-brand-500 px-5 py-4 font-semibold text-white shadow-lg shadow-brand-500/30 transition hover:bg-brand-600 active:scale-[0.98] disabled:opacity-50"
             >
               {busy ? 'Enregistrement…' : `Confirmer l'encaissement · ${fcfa(order.totalFcfa)}`}
@@ -235,7 +237,12 @@ export function CollectSheet({
           </div>
         </>
       )}
-      {voucher && <ChangeVoucherTicket order={order} amountFcfa={done?.voucher ?? 0} code={done?.code ?? null} />}
+      {printStep === 'voucher' && (
+        <ChangeVoucherTicket order={order} amountFcfa={done?.voucher ?? 0} code={done?.code ?? null} />
+      )}
+      {printStep === 'receipt' && (
+        <ReceiptPrint restaurantId={restaurantId} orderId={order.id} onDone={() => setPrintStep(null)} />
+      )}
     </Sheet>
   );
 }

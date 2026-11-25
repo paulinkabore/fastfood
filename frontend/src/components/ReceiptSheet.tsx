@@ -116,3 +116,51 @@ export function ReceiptSheet({
     </>
   );
 }
+
+// Reçu imprimé automatiquement (sans l'afficher), puis onDone une fois l'impression terminée
+export function ReceiptPrint({
+  restaurantId,
+  orderId,
+  onDone,
+}: {
+  restaurantId: string;
+  orderId: string;
+  onDone: () => void;
+}) {
+  const [receipt, setReceipt] = useState<ReceiptView | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    authRequest<{ receipt: ReceiptView }>(`/restaurants/${restaurantId}/orders/${orderId}/receipt`)
+      .then((d) => {
+        if (!cancelled) setReceipt(d.receipt);
+      })
+      .catch(() => {
+        if (!cancelled) onDone();
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurantId, orderId]);
+
+  useEffect(() => {
+    if (!receipt) return;
+    window.addEventListener('afterprint', onDone);
+    const t = window.setTimeout(printTicket, 300);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('afterprint', onDone);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receipt]);
+
+  return receipt
+    ? createPortal(
+        <div className="print-receipt">
+          <ReceiptBody r={receipt} />
+        </div>,
+        document.body,
+      )
+    : null;
+}
