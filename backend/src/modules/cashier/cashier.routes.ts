@@ -306,8 +306,8 @@ async function collectCash(opts: {
   orderId: string;
   userId: string;
   amountReceivedFcfa?: number;
-  // Pas de monnaie à rendre : la différence devient un bon remis au client
-  leaveChange?: boolean;
+  // Monnaie que le caissier n'a pas : ce montant devient un bon remis au client, le reste est rendu
+  voucherFcfa?: number;
 }) {
   return prisma.$transaction(async (tx) => {
     await lockRestaurant(tx, opts.restaurantId);
@@ -340,7 +340,7 @@ async function collectCash(opts: {
     }
 
     let changeCode: string | null = null;
-    if (opts.leaveChange) {
+    if (opts.voucherFcfa) {
       for (let i = 0; i < 10 && !changeCode; i++) {
         const c = newChangeCode();
         const taken = await tx.payment.findFirst({
@@ -350,12 +350,15 @@ async function collectCash(opts: {
         if (!taken) changeCode = c;
       }
     }
-    const changeDue =
-      opts.leaveChange && opts.amountReceivedFcfa !== undefined
-        ? opts.amountReceivedFcfa - order.totalFcfa
-        : 0;
-    if (opts.leaveChange && changeDue <= 0) {
-      throw new AppError(400, 'NO_CHANGE_DUE', 'Il n’y a pas de monnaie à rendre sur cet encaissement');
+    const fullChange =
+      opts.amountReceivedFcfa !== undefined ? opts.amountReceivedFcfa - order.totalFcfa : 0;
+    const changeDue = opts.voucherFcfa ?? 0;
+    if (opts.voucherFcfa !== undefined && (changeDue <= 0 || changeDue > fullChange)) {
+      throw new AppError(
+        400,
+        'INVALID_VOUCHER',
+        'Le montant du bon doit être compris entre 1 FCFA et la monnaie à rendre',
+      );
     }
 
     // Numéro de reçu suivant (le verrou garantit qu'il est unique)
@@ -425,10 +428,10 @@ cashierRouter.post(
   '/orders/:orderId/pay/cash',
   ...cashierOnly,
   asyncHandler(async (req, res) => {
-    const { amountReceivedFcfa, leaveChange } = z
+    const { amountReceivedFcfa, voucherFcfa } = z
       .object({
         amountReceivedFcfa: z.number().int().min(0).max(100_000_000).optional(),
-        leaveChange: z.boolean().optional(),
+        voucherFcfa: z.number().int().min(1).max(100_000_000).optional(),
       })
       .parse(req.body ?? {});
 
@@ -437,7 +440,7 @@ cashierRouter.post(
       orderId: String(req.params.orderId),
       userId: uid(req),
       amountReceivedFcfa,
-      leaveChange,
+      voucherFcfa,
     });
     if (!result.unchanged) void emitOrderUpdated(result.order.id);
 
@@ -614,7 +617,7 @@ const counterSchema = z.object({
   items: z.array(orderItemSchema).min(1).max(40),
   payNow: z.boolean().default(false),
   amountReceivedFcfa: z.number().int().min(0).max(100_000_000).optional(),
-  leaveChange: z.boolean().optional(),
+  voucherFcfa: z.number().int().min(1).max(100_000_000).optional(),
 });
 
 cashierRouter.post(
@@ -669,7 +672,7 @@ cashierRouter.post(
       orderId: order.id,
       userId: uid(req),
       amountReceivedFcfa: body.amountReceivedFcfa,
-      leaveChange: body.leaveChange,
+      voucherFcfa: body.voucherFcfa,
     });
     void emitOrderUpdated(order.id);
     const fresh = await prisma.order.findUniqueOrThrow({

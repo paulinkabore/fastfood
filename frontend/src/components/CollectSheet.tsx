@@ -6,6 +6,7 @@ import type { CashierOrder } from '../lib/types';
 import { Sheet } from './Sheet';
 import { CheckIcon, CloseIcon } from './icons';
 import { placeLabel } from '../lib/orderPlace';
+import { ChangeVoucherPanel } from './ChangeVoucherPanel';
 import { ChangeVoucherTicket } from './ChangeVoucherTicket';
 import { printTicket } from '../lib/print';
 
@@ -28,7 +29,7 @@ export function CollectSheet({
   const [received, setReceived] = useState(String(order.totalFcfa));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ change: number | null; voucher: boolean; code: string | null } | null>(null);
+  const [done, setDone] = useState<{ change: number | null; voucher: number | null; code: string | null } | null>(null);
   const [voucher, setVoucher] = useState(false); // bon imprimé à l'écran de fin
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export function CollectSheet({
   const valid = amount >= order.totalFcfa;
   const quick = [order.totalFcfa, ...BILLS.filter((b) => b > order.totalFcfa)];
 
-  const confirm = async (leaveChange = false) => {
+  const confirm = async (voucherFcfa?: number) => {
     if (lock.current || !valid) return;
     lock.current = true;
     setBusy(true);
@@ -55,10 +56,14 @@ export function CollectSheet({
     try {
       const data = await authRequest<{ changeFcfa: number | null; payment: { changeCode: string | null } }>(
         `/restaurants/${restaurantId}/orders/${order.id}/pay/cash`,
-        { method: 'POST', body: JSON.stringify({ amountReceivedFcfa: amount, leaveChange }) },
+        { method: 'POST', body: JSON.stringify({ amountReceivedFcfa: amount, ...(voucherFcfa ? { voucherFcfa } : {}) }) },
       );
-      setDone({ change: data.changeFcfa, voucher: leaveChange, code: data.payment.changeCode });
-      if (leaveChange) setVoucher(true);
+      setDone({
+        change: data.changeFcfa,
+        voucher: voucherFcfa ?? null,
+        code: data.payment.changeCode,
+      });
+      if (voucherFcfa) setVoucher(true);
       onPaid();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
@@ -93,17 +98,22 @@ export function CollectSheet({
             <p className="text-xl font-semibold tracking-tight">Paiement enregistré</p>
             <p className="mt-1 text-stone-500">{fcfa(order.totalFcfa)}</p>
           </div>
-          {done.change !== null && done.change > 0 && (
+          {done.change !== null && done.change > 0 && (done.change - (done.voucher ?? 0) > 0 || done.voucher) && (
             <div className="rounded-2xl bg-amber-50 px-4 py-4">
               <p className="text-sm font-medium text-amber-700">
-                {done.voucher ? 'Monnaie due : bon remis au client' : 'Monnaie à rendre'}
+                {done.voucher ? 'Monnaie à rendre maintenant' : 'Monnaie à rendre'}
               </p>
               <p className="text-3xl font-semibold tracking-tight text-amber-800">
-                {fcfa(done.change)}
+                {fcfa(done.change - (done.voucher ?? 0))}
               </p>
-              {done.voucher && done.code && (
+              {done.voucher && (
                 <p className="mt-1 text-sm font-medium text-amber-700">
-                  Bon n° <span className="font-semibold tracking-widest">{done.code}</span>
+                  Bon de {fcfa(done.voucher)}
+                  {done.code && (
+                    <>
+                      {' '}· n° <span className="font-semibold tracking-widest">{done.code}</span>
+                    </>
+                  )}
                 </p>
               )}
             </div>
@@ -212,18 +222,11 @@ export function CollectSheet({
 
           <div className="space-y-2 border-t border-stone-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             {valid && change > 0 && (
-              <button
-                type="button"
-                onClick={() => void confirm(true)}
-                disabled={busy}
-                className="w-full rounded-2xl bg-amber-50 px-5 py-3.5 font-semibold text-amber-800 ring-1 ring-amber-200 transition active:scale-[0.98] disabled:opacity-50"
-              >
-                Pas de monnaie : imprimer un bon de {fcfa(change)}
-              </button>
+              <ChangeVoucherPanel change={change} busy={busy} onPrint={(v) => void confirm(v)} />
             )}
             <button
               type="button"
-              onClick={() => void confirm(false)}
+              onClick={() => void confirm()}
               disabled={!valid || busy}
               className="w-full rounded-2xl bg-brand-500 px-5 py-4 font-semibold text-white shadow-lg shadow-brand-500/30 transition hover:bg-brand-600 active:scale-[0.98] disabled:opacity-50"
             >
@@ -232,7 +235,7 @@ export function CollectSheet({
           </div>
         </>
       )}
-      {voucher && <ChangeVoucherTicket order={order} amountFcfa={done?.change ?? 0} code={done?.code ?? null} />}
+      {voucher && <ChangeVoucherTicket order={order} amountFcfa={done?.voucher ?? 0} code={done?.code ?? null} />}
     </Sheet>
   );
 }

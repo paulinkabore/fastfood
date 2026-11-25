@@ -13,6 +13,7 @@ import type {
   StaffProduct,
   StaffTable,
 } from '../lib/types';
+import { ChangeVoucherPanel } from './ChangeVoucherPanel';
 import { Logo } from './Logo';
 import { ProductSheet } from './ProductSheet';
 import { Sheet } from './Sheet';
@@ -162,7 +163,7 @@ export function CounterOrderSheet({
   const change = amount - total;
   const validAmount = amount >= total;
 
-  const submit = async (payNow: boolean, opts?: { amountReceivedFcfa: number; leaveChange: boolean }) => {
+  const submit = async (payNow: boolean, opts?: { amountReceivedFcfa: number; voucherFcfa?: number }) => {
     if (lock.current || cart.lines.length === 0) return;
     if (needTable) return setError('Choisissez la table');
     if (needName) return setError('Saisissez le nom du client');
@@ -196,7 +197,7 @@ export function CounterOrderSheet({
         paid: payNow,
         order: data.order,
         voucher:
-          opts?.leaveChange && due > 0
+          opts?.voucherFcfa && due > 0
             ? { amountFcfa: due, code: data.payment?.changeCode ?? null }
             : null,
       });
@@ -555,18 +556,15 @@ export function CounterOrderSheet({
             ) : paying ? (
               <>
                 {validAmount && change > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => void submit(true, { amountReceivedFcfa: amount, leaveChange: true })}
-                    disabled={busy}
-                    className="w-full rounded-2xl bg-amber-50 px-5 py-3.5 font-semibold text-amber-800 ring-1 ring-amber-200 transition active:scale-[0.98] disabled:opacity-50"
-                  >
-                    Pas de monnaie : imprimer un bon de {fcfa(change)}
-                  </button>
+                  <ChangeVoucherPanel
+                    change={change}
+                    busy={busy}
+                    onPrint={(v) => void submit(true, { amountReceivedFcfa: amount, voucherFcfa: v })}
+                  />
                 )}
                 <button
                   type="button"
-                  onClick={() => void submit(true, { amountReceivedFcfa: amount, leaveChange: false })}
+                  onClick={() => void submit(true, { amountReceivedFcfa: amount })}
                   disabled={busy || !validAmount}
                   className="w-full rounded-2xl bg-brand-500 px-5 py-4 font-semibold text-white shadow-lg shadow-brand-500/30 transition active:scale-[0.98] disabled:opacity-50"
                 >
