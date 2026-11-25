@@ -2,10 +2,10 @@ import { createPortal } from 'react-dom';
 import { Row, Sep, TicketFooter, TicketHeader, dateFr, ticketFont, timeShort } from './TicketParts';
 import { fcfa } from '../lib/format';
 import { placeLabel } from '../lib/orderPlace';
-import type { CashierOrder } from '../lib/types';
+import type { OrderView } from '../lib/types';
 
 // Bon de monnaie : remis au client quand la caisse n'a pas pu rendre la monnaie
-export function ChangeVoucherTicket({ order, amountFcfa, code }: { order: CashierOrder; amountFcfa: number; code: string | null }) {
+export function ChangeVoucherTicket({ order, amountFcfa, code }: { order: OrderView; amountFcfa: number; code: string | null }) {
   const now = new Date();
   return createPortal(
     <div className="print-receipt" style={ticketFont}>

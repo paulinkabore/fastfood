@@ -5,8 +5,9 @@ import { RequireRole } from '../components/RequireRole';
 import { StaffLayout } from '../components/StaffLayout';
 import { CloseSessionSheet } from '../components/CloseSessionSheet';
 import { CollectSheet } from '../components/CollectSheet';
-import { CounterOrderSheet } from '../components/CounterOrderSheet';
+import { CounterOrderSheet, type CounterResult } from '../components/CounterOrderSheet';
 import { BillTicket } from '../components/BillTicket';
+import { ChangeVoucherTicket } from '../components/ChangeVoucherTicket';
 import { CustomerNameSheet } from '../components/CustomerNameSheet';
 import { MobileMoneySheet } from '../components/MobileMoneySheet';
 import { ReceiptSheet } from '../components/ReceiptSheet';
@@ -18,7 +19,7 @@ import { useCashier, type CashierScope } from '../features/cashier/useCashier';
 import { ApiError } from '../lib/api';
 import { authRequest, useAuth } from '../lib/auth';
 import { fcfa, parseAmount, timeFr } from '../lib/format';
-import type { CashierOrder, CashSessionView, OrderStatus } from '../lib/types';
+import type { CashierOrder, CashSessionView, OrderStatus, OrderView } from '../lib/types';
 import { placeLabel } from '../lib/orderPlace';
 
 const STATUS: Record<OrderStatus, { label: string; style: string }> = {
@@ -278,6 +279,19 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
       window.removeEventListener('afterprint', done);
     };
   }, [ticket]);
+
+  // Bon de monnaie imprimé juste après une prise de commande payée au comptoir
+  const [voucherJob, setVoucherJob] = useState<{ order: OrderView; amountFcfa: number; code: string | null } | null>(null);
+  useEffect(() => {
+    if (!voucherJob) return;
+    const done = () => setVoucherJob(null);
+    window.addEventListener('afterprint', done);
+    const t = window.setTimeout(printTicket, 150);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('afterprint', done);
+    };
+  }, [voucherJob]);
 
   const [collecting, setCollecting] = useState<CashierOrder | null>(null);
   const [verifying, setVerifying] = useState<CashierOrder | null>(null);
@@ -569,6 +583,9 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
       )}
 
       {ticket && <BillTicket order={ticket} />}
+      {voucherJob && (
+        <ChangeVoucherTicket order={voucherJob.order} amountFcfa={voucherJob.amountFcfa} code={voucherJob.code} />
+      )}
 
       {naming && (
         <CustomerNameSheet
@@ -602,10 +619,11 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
           restaurantId={restaurantId}
           session={session}
           onClose={() => setCounterOpen(false)}
-          onCreated={({ orderId, paid }) => {
+          onCreated={({ orderId, paid, order, voucher }: CounterResult) => {
             setCounterOpen(false);
             void reload();
             if (paid) setReceiptId(orderId);
+            if (voucher) setVoucherJob({ order, ...voucher });
           }}
         />
       )}

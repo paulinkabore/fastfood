@@ -613,6 +613,8 @@ const counterSchema = z.object({
   customerName: z.string().trim().min(2).max(40).optional(),
   items: z.array(orderItemSchema).min(1).max(40),
   payNow: z.boolean().default(false),
+  amountReceivedFcfa: z.number().int().min(0).max(100_000_000).optional(),
+  leaveChange: z.boolean().optional(),
 });
 
 cashierRouter.post(
@@ -662,13 +664,23 @@ cashierRouter.post(
       return;
     }
 
-    const paid = await collectCash({ restaurantId, orderId: order.id, userId: uid(req) });
+    const paid = await collectCash({
+      restaurantId,
+      orderId: order.id,
+      userId: uid(req),
+      amountReceivedFcfa: body.amountReceivedFcfa,
+      leaveChange: body.leaveChange,
+    });
     void emitOrderUpdated(order.id);
     const fresh = await prisma.order.findUniqueOrThrow({
       where: { id: order.id },
       include: orderInclude,
     });
-    res.status(201).json({ order: presentOrder(fresh), payment: presentPayment(paid.payment) });
+    res.status(201).json({
+      order: presentOrder(fresh),
+      payment: presentPayment(paid.payment),
+      changeFcfa: paid.changeFcfa,
+    });
   }),
 );
 
