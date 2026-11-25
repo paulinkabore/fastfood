@@ -227,6 +227,26 @@ function Statistics({ restaurantId }: { restaurantId: string }) {
             />
           </section>
 
+          {(data.vouchers.issuedCount > 0 || data.vouchers.pendingCount > 0 || data.vouchers.usedCount > 0) && (
+            <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+              <Kpi
+                label="Bons de monnaie émis"
+                value={fcfa(data.vouchers.issuedFcfa)}
+                hint={`${data.vouchers.issuedCount} bon${data.vouchers.issuedCount > 1 ? 's' : ''} sur la période`}
+              />
+              <Kpi
+                label="Bons utilisés en réduction"
+                value={fcfa(data.vouchers.usedFcfa)}
+                hint={`${data.vouchers.usedCount} utilisation${data.vouchers.usedCount > 1 ? 's' : ''}`}
+              />
+              <Kpi
+                label="Bons en attente"
+                value={fcfa(data.vouchers.pendingFcfa)}
+                hint={`${data.vouchers.pendingCount} bon${data.vouchers.pendingCount > 1 ? 's' : ''} non réclamé${data.vouchers.pendingCount > 1 ? 's' : ''}, tous jours confondus`}
+              />
+            </section>
+          )}
+
           {empty && (
             <p className="rounded-2xl border border-dashed border-stone-300 px-4 py-10 text-center text-sm text-stone-400">
               Aucune vente sur cette période.

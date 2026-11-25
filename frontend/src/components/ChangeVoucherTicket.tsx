@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
 import { Row, Sep, TicketFooter, TicketHeader, dateFr, ticketFont, timeShort } from './TicketParts';
 import { fcfa } from '../lib/format';
+import { voucherValidUntil } from '../lib/voucher';
 import { placeLabel } from '../lib/orderPlace';
 import type { OrderView } from '../lib/types';
 
@@ -32,7 +33,10 @@ export function ChangeVoucherTicket({ order, amountFcfa, code }: { order: OrderV
       </p>
       <Sep double />
       <p style={{ textAlign: 'center', margin: 0 }}>
-        Présentez ce bon à la caisse pour récupérer votre monnaie.
+        Présentez ce bon à la caisse pour récupérer votre monnaie ou le déduire d’une prochaine commande.
+      </p>
+      <p style={{ textAlign: 'center', fontWeight: 700, margin: '4px 0 0' }}>
+        Valable jusqu’au {dateFr(voucherValidUntil(now))}
       </p>
       <TicketFooter lines={['Bon à conserver', 'Merci de votre visite']} />
     </div>,

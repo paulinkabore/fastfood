@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
-import { POLL_MS, REALTIME } from '../../lib/realtime';
+import { STAFF_POLL_MS, REALTIME } from '../../lib/realtime';
 import { ApiError } from '../../lib/api';
 import { authRequest, getAccessToken, refreshSession } from '../../lib/auth';
 import type { CashierOrder } from '../../lib/types';
@@ -42,7 +42,7 @@ export function useLiveOrders(restaurantId: string) {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => void loadRef.current(), 300);
     };
-    const poll = window.setInterval(() => void loadRef.current(), POLL_MS);
+    const poll = window.setInterval(() => void loadRef.current(), STAFF_POLL_MS);
 
     if (!REALTIME) return () => window.clearInterval(poll);
 

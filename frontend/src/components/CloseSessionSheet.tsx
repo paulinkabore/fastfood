@@ -130,6 +130,13 @@ export function CloseSessionSheet({
                   </span>
                 </p>
               )}
+              {session.changeOpenCount > 0 && (
+                <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                  {session.changeOpenCount} bon{session.changeOpenCount > 1 ? 's' : ''} de monnaie non réclamé
+                  {session.changeOpenCount > 1 ? 's' : ''} ({fcfa(session.changeOpenFcfa)}) : cet argent reste
+                  dans le tiroir et sera remis aux clients à leur retour.
+                </p>
+              )}
               <p className={row}>
                 <span className="font-medium text-stone-700">Argent attendu</span>
                 <span className="text-base font-semibold">{fcfa(session.expectedFcfa)}</span>

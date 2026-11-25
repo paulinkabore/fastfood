@@ -63,7 +63,7 @@ statsRouter.get(
     const r = parseRange(req.query);
     const inRange = { gte: r.start, lt: r.end };
 
-    const [orders, collectedByMethod, refunded, itemGroups] = await Promise.all([
+    const [orders, collectedByMethod, refunded, itemGroups, vIssued, vUsed, vPending] = await Promise.all([
       prisma.order.findMany({
         where: { restaurantId, createdAt: inRange },
         select: { createdAt: true, status: true, paymentStatus: true, totalFcfa: true },
@@ -87,6 +87,22 @@ statsRouter.get(
           order: { createdAt: inRange, status: { not: 'CANCELLED' }, paymentStatus: { not: 'REFUNDED' } },
         },
         _sum: { quantity: true },
+      }),
+      // Bons de monnaie : émis, utilisés comme réduction, et encore en attente (tous jours confondus)
+      prisma.payment.aggregate({
+        where: { restaurantId, confirmedAt: inRange, changeDueFcfa: { gt: 0 } },
+        _sum: { changeDueFcfa: true },
+        _count: { _all: true },
+      }),
+      prisma.payment.aggregate({
+        where: { restaurantId, confirmedAt: inRange, voucherUsedFcfa: { gt: 0 } },
+        _sum: { voucherUsedFcfa: true },
+        _count: { _all: true },
+      }),
+      prisma.payment.aggregate({
+        where: { restaurantId, changeDueFcfa: { gt: 0 }, changeSettledAt: null },
+        _sum: { changeDueFcfa: true },
+        _count: { _all: true },
       }),
     ]);
 
@@ -150,6 +166,14 @@ statsRouter.get(
         collectedCount: paymentMethods.reduce((s, m) => s + m.count, 0),
         refundedFcfa: refunded._sum.amountFcfa ?? 0,
         refundedCount: refunded._count._all,
+      },
+      vouchers: {
+        issuedCount: vIssued._count._all,
+        issuedFcfa: vIssued._sum.changeDueFcfa ?? 0,
+        usedCount: vUsed._count._all,
+        usedFcfa: vUsed._sum.voucherUsedFcfa ?? 0,
+        pendingCount: vPending._count._all,
+        pendingFcfa: vPending._sum.changeDueFcfa ?? 0,
       },
       paymentMethods,
       byDay,

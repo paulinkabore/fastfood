@@ -7,7 +7,7 @@ import type { CashierOrder, CashSessionView } from '../../lib/types';
 
 export type CashierScope = 'unpaid' | 'today' | 'search' | 'change';
 
-export function useCashier(restaurantId: string, scope: CashierScope, number?: number) {
+export function useCashier(restaurantId: string, scope: CashierScope, number?: number, code?: string) {
   const [session, setSession] = useState<CashSessionView | null>(null);
   const [orders, setOrders] = useState<CashierOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +25,7 @@ export function useCashier(restaurantId: string, scope: CashierScope, number?: n
           `/restaurants/${restaurantId}/cash-sessions/current`,
         ),
         authRequest<{ orders: CashierOrder[] }>(
-          `/restaurants/${restaurantId}/cashier/orders?scope=${scope}${scope === 'search' ? `&number=${number}` : ''}`,
+          `/restaurants/${restaurantId}/cashier/orders?scope=${scope}${scope === 'search' ? (code ? `&code=${code}` : `&number=${number}`) : ''}`,
         ),
       ]);
       if (s.status === 'fulfilled') setSession(s.value.session);
@@ -38,7 +38,7 @@ export function useCashier(restaurantId: string, scope: CashierScope, number?: n
       inflight.current = false;
       setLoading(false);
     }
-  }, [restaurantId, scope, number]);
+  }, [restaurantId, scope, number, code]);
 
   const loadRef = useRef(load);
   useEffect(() => {

@@ -6,7 +6,7 @@ import { Logo } from '../components/Logo';
 import { ApiError } from '../lib/api';
 import { authRequest, useAuth } from '../lib/auth';
 import { fcfa } from '../lib/format';
-import { POLL_MS } from '../lib/realtime';
+import { STAFF_POLL_MS } from '../lib/realtime';
 import type { OrderView } from '../lib/types';
 
 type CourierOrder = OrderView & { mine: boolean; claimedAt: string | null };
@@ -60,7 +60,7 @@ function Courier({ restaurantId }: { restaurantId: string }) {
 
   useEffect(() => {
     void load();
-    const t = window.setInterval(() => void load(), Math.min(POLL_MS, 5_000));
+    const t = window.setInterval(() => void load(), STAFF_POLL_MS);
     return () => window.clearInterval(t);
   }, [load]);
 

@@ -12,6 +12,14 @@ export type Stats = {
     refundedFcfa: number;
     refundedCount: number;
   };
+  vouchers: {
+    issuedCount: number;
+    issuedFcfa: number;
+    usedCount: number;
+    usedFcfa: number;
+    pendingCount: number;
+    pendingFcfa: number;
+  };
   paymentMethods: { method: string; amountFcfa: number; count: number }[];
   byDay: { date: string; orders: number; salesFcfa: number }[];
   byHour: { hour: number; orders: number; salesFcfa: number }[];

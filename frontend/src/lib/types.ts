@@ -66,6 +66,7 @@ export type CashierOrder = OrderView & {
     confirmedAt: string | null;
     changeDueFcfa: number;
     changeCode: string | null;
+    changeExpiresAt: string | null;
     changeSettledAt: string | null;
   }[];
 };
@@ -82,6 +83,8 @@ export type CashSessionView = {
   refundedCount: number;
   changeHeldFcfa: number;
   changeSettledFcfa: number;
+  changeOpenFcfa: number;
+  changeOpenCount: number;
   expectedFcfa: number;
   closingAmountFcfa: number | null;
   differenceFcfa: number | null;

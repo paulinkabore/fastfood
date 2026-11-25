@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto';
+import rateLimit from 'express-rate-limit';
 import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { Prisma, type CashSession, type MemberRole, type OrderStatus } from '@prisma/client';
@@ -11,6 +12,7 @@ import { createOrder, orderItemSchema } from '../../lib/orderService';
 import { emitOrderCreated, emitOrderUpdated } from '../../lib/realtime';
 import { restoreStockForOrder } from '../../lib/stock';
 import { authenticate, requireRestaurantRole } from '../../middleware/auth';
+import { rateLimitHandler } from '../../lib/security';
 
 export const cashierRouter = Router({ mergeParams: true });
 
@@ -23,6 +25,22 @@ const cashierOnly = [authenticate, requireRestaurantRole('CASHIER')];
 // Restaurant et utilisateur déjà vérifiés par les middlewares
 const rid = (req: Request) => req.membership!.restaurantId;
 const uid = (req: Request) => req.auth!.userId;
+
+// Un bon de monnaie vaut de l'argent : on limite les essais de numéros (anti devinette), par employé
+export const VOUCHER_VALID_DAYS = 30;
+const voucherLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.auth?.userId ?? 'anonyme',
+  handler: rateLimitHandler('TOO_MANY_ATTEMPTS', 'Trop d’essais de bons, réessayez dans quelques minutes'),
+});
+const voucherExpiresAt = (p: { confirmedAt: Date | null; createdAt: Date }) =>
+  new Date((p.confirmedAt ?? p.createdAt).getTime() + VOUCHER_VALID_DAYS * 86_400_000);
+// Applique la limite seulement quand un numéro de bon est envoyé avec l'encaissement
+const limitVoucherUse = (req: Request, res: Parameters<typeof voucherLimiter>[1], next: Parameters<typeof voucherLimiter>[2]) =>
+  req.body?.useVoucherCode ? voucherLimiter(req, res, next) : next();
 
 const ACTIVE: OrderStatus[] = ['RECEIVED', 'PREPARING', 'READY'];
 
@@ -47,7 +65,7 @@ async function requireOpenSession(db: Db, restaurantId: string, userId: string) 
 
 // ---------- Totaux d'une caisse ----------
 async function sessionTotals(db: Db, session: { id: string; openingFloatFcfa: number }) {
-  const [collected, refunded, held, settled] = await Promise.all([
+  const [collected, refunded, held, settled, open] = await Promise.all([
     db.payment.aggregate({
       where: { cashSessionId: session.id, method: 'CASH', confirmedAt: { not: null } },
       _sum: { amountFcfa: true },
@@ -68,6 +86,12 @@ async function sessionTotals(db: Db, session: { id: string; openingFloatFcfa: nu
       where: { changeSettledSessionId: session.id },
       _sum: { changeDueFcfa: true },
     }),
+    // Bons émis pendant cette caisse et jamais réclamés
+    db.payment.aggregate({
+      where: { cashSessionId: session.id, changeDueFcfa: { gt: 0 }, changeSettledAt: null },
+      _sum: { changeDueFcfa: true },
+      _count: true,
+    }),
   ]);
   const collectedFcfa = collected._sum.amountFcfa ?? 0;
   const refundedFcfa = refunded._sum.amountFcfa ?? 0;
@@ -80,6 +104,8 @@ async function sessionTotals(db: Db, session: { id: string; openingFloatFcfa: nu
     refundedCount: refunded._count,
     changeHeldFcfa,
     changeSettledFcfa,
+    changeOpenFcfa: open._sum.changeDueFcfa ?? 0,
+    changeOpenCount: open._count,
     // Argent qui doit se trouver dans le tiroir
     expectedFcfa: session.openingFloatFcfa + collectedFcfa - refundedFcfa + changeHeldFcfa - changeSettledFcfa,
   };
@@ -121,6 +147,7 @@ const presentPayment = (p: {
   changeDueFcfa?: number;
   changeCode?: string | null;
   changeSettledAt?: Date | null;
+  createdAt?: Date;
 }) => ({
   id: p.id,
   method: p.method,
@@ -130,6 +157,8 @@ const presentPayment = (p: {
   confirmedAt: p.confirmedAt,
   changeDueFcfa: p.changeDueFcfa ?? 0,
   changeCode: p.changeCode ?? null,
+  changeExpiresAt:
+    (p.changeDueFcfa ?? 0) > 0 ? voucherExpiresAt({ confirmedAt: p.confirmedAt, createdAt: p.createdAt ?? new Date() }) : null,
   changeSettledAt: p.changeSettledAt ?? null,
 });
 
@@ -147,6 +176,7 @@ const cashierInclude = {
       changeDueFcfa: true,
       changeCode: true,
       changeSettledAt: true,
+      createdAt: true,
     },
   },
 } satisfies Prisma.OrderInclude;
@@ -347,6 +377,7 @@ async function collectCash(opts: {
       if (!v) throw new AppError(404, 'VOUCHER_NOT_FOUND', 'Aucun bon avec ce numéro');
       if (v.orderId === order.id) throw new AppError(400, 'VOUCHER_SAME_ORDER', 'Ce bon ne peut pas servir à sa propre commande');
       if (v.changeSettledAt) throw new AppError(409, 'VOUCHER_ALREADY_USED', 'Ce bon a déjà été utilisé');
+      if (voucherExpiresAt(v) < new Date()) throw new AppError(409, 'VOUCHER_EXPIRED', 'Ce bon a expiré');
       await tx.payment.update({
         where: { id: v.id },
         data: { changeSettledAt: new Date(), changeSettledById: opts.userId, changeSettledSessionId: session.id },
@@ -466,6 +497,7 @@ async function collectCash(opts: {
 cashierRouter.post(
   '/orders/:orderId/pay/cash',
   ...cashierOnly,
+  limitVoucherUse,
   asyncHandler(async (req, res) => {
     const { amountReceivedFcfa, voucherFcfa, useVoucherCode } = z
       .object({
@@ -611,10 +643,16 @@ cashierRouter.get(
   '/cashier/orders',
   ...canCash,
   asyncHandler(async (req, res) => {
-    const { scope, number } = z
+    const { scope, number, code } = z
       .object({
         scope: z.enum(['unpaid', 'today', 'search', 'change']).default('unpaid'),
         number: z.coerce.number().int().min(1).max(10_000_000).optional(),
+        code: z
+          .string()
+          .trim()
+          .toUpperCase()
+          .regex(/^[A-Z0-9]{6}$/)
+          .optional(),
       })
       .parse(req.query);
     const restaurantId = rid(req);
@@ -623,12 +661,14 @@ cashierRouter.get(
     startOfDay.setUTCHours(0, 0, 0, 0);
 
     // Recherche d'un ticket par son numéro (unique dans le restaurant, quelle que soit la date)
-    if (scope === 'search' && number === undefined) {
-      throw new AppError(400, 'NUMBER_REQUIRED', 'Indiquez le numéro du ticket');
+    if (scope === 'search' && number === undefined && code === undefined) {
+      throw new AppError(400, 'NUMBER_REQUIRED', 'Indiquez le numéro du ticket ou du bon');
     }
     const where =
       scope === 'search'
-        ? { restaurantId, number }
+        ? code !== undefined
+          ? { restaurantId, payments: { some: { changeCode: code } } }
+          : { restaurantId, number }
         : scope === 'change'
           ? {
               restaurantId,
@@ -665,6 +705,7 @@ const counterSchema = z.object({
 cashierRouter.post(
   '/cashier/orders',
   ...cashierOnly,
+  limitVoucherUse,
   asyncHandler(async (req, res) => {
     const body = counterSchema.parse(req.body);
     const restaurantId = rid(req);
@@ -791,15 +832,33 @@ cashierRouter.post(
 cashierRouter.get(
   '/change-vouchers/:code',
   ...cashierOnly,
+  voucherLimiter,
   asyncHandler(async (req, res) => {
     const code = String(req.params.code).trim().toUpperCase();
     const v = await prisma.payment.findFirst({
       where: { restaurantId: rid(req), changeCode: code, status: 'PAID', changeDueFcfa: { gt: 0 } },
       include: { order: { select: { number: true } } },
     });
-    if (!v) throw new AppError(404, 'VOUCHER_NOT_FOUND', 'Aucun bon avec ce numéro');
+    if (!v) {
+      // Chaque numéro inconnu est noté : une série d'essais révèle une tentative de fraude
+      void prisma.auditLog
+        .create({
+          data: {
+            restaurantId: rid(req),
+            userId: uid(req),
+            action: 'VOUCHER_LOOKUP_FAILED',
+            entity: 'Payment',
+            details: { code: code.slice(0, 12) },
+          },
+        })
+        .catch(() => undefined);
+      throw new AppError(404, 'VOUCHER_NOT_FOUND', 'Aucun bon avec ce numéro');
+    }
     if (v.changeSettledAt) throw new AppError(409, 'VOUCHER_ALREADY_USED', 'Ce bon a déjà été utilisé');
-    res.json({ voucher: { code, amountFcfa: v.changeDueFcfa, orderNumber: v.order.number } });
+    if (voucherExpiresAt(v) < new Date()) throw new AppError(409, 'VOUCHER_EXPIRED', 'Ce bon a expiré');
+    res.json({
+      voucher: { code, amountFcfa: v.changeDueFcfa, orderNumber: v.order.number, expiresAt: voucherExpiresAt(v) },
+    });
   }),
 );
 
@@ -871,13 +930,6 @@ cashierRouter.post(
         where: { orderId: order.id, status: 'PAID', method: { in: ['CASH', 'MOBILE_MONEY'] } },
       });
       if (!payment) throw new AppError(409, 'NOT_PAID', 'Aucun paiement à rembourser');
-      if (payment.voucherUsedFcfa > 0) {
-        throw new AppError(
-          409,
-          'VOUCHER_USED',
-          'Cette commande a été payée avec un bon de monnaie : le remboursement doit se faire manuellement',
-        );
-      }
       if (payment.changeDueFcfa > 0 && !payment.changeSettledAt) {
         throw new AppError(
           409,

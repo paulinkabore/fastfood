@@ -120,6 +120,13 @@ function OrderRow({
         <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
           <p className="text-sm font-medium text-amber-800">
             Monnaie due au client{owed.changeCode ? ` · bon ${owed.changeCode}` : ''}
+            {owed.changeExpiresAt && (
+              <span className="block text-xs font-normal text-amber-700">
+                {new Date(owed.changeExpiresAt) < new Date()
+                  ? 'Bon expiré'
+                  : `Valable jusqu’au ${new Date(owed.changeExpiresAt).toLocaleDateString('fr-FR')}`}
+              </span>
+            )}
             <span className="block text-lg font-semibold">{fcfa(owed.changeDueFcfa)}</span>
           </p>
           {!readOnly && (
@@ -188,23 +195,42 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
   const [scope, setScope] = useState<CashierScope>('unpaid');
   const [query, setQuery] = useState('');
   const [searchNo, setSearchNo] = useState<number | undefined>(undefined);
-  // La recherche part 300 ms après la dernière frappe
+  const [searchCode, setSearchCode] = useState<string | undefined>(undefined);
+  // La recherche part 300 ms après la dernière frappe : numéro de ticket (chiffres) ou numéro de bon (6 caractères)
   useEffect(() => {
     const t = window.setTimeout(() => {
-      const n = /^\d{1,8}$/.test(query.trim()) ? Number(query.trim()) : undefined;
+      const q = query.trim().toUpperCase();
+      const n = /^\d{1,8}$/.test(q) ? Number(q) : undefined;
       setSearchNo(n && n > 0 ? n : undefined);
+      setSearchCode(/^[A-Z0-9]{6}$/.test(q) && /[A-Z]/.test(q) ? q : undefined);
     }, 300);
     return () => window.clearTimeout(t);
   }, [query]);
-  const searching = searchNo !== undefined;
+  const searching = searchNo !== undefined || searchCode !== undefined;
   const { session, orders, loading, error, live, reload } = useCashier(
     restaurantId,
     searching ? 'search' : scope,
     searchNo,
+    searchCode,
   );
 
-  // Bip quand un nouveau paiement Mobile Money attend d'être validé
   const [soundOn, setSoundOn] = useState(false);
+  // Bip quand une nouvelle commande (client au QR code ou serveur) arrive à encaisser
+  const seenNew = useRef<Set<string> | null>(null);
+  const ownCreated = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (loading || scope !== 'unpaid' || searching) return;
+    const ids = orders.map((o) => o.id);
+    if (seenNew.current === null) {
+      seenNew.current = new Set(ids);
+      return;
+    }
+    const fresh = ids.filter((id) => !seenNew.current!.has(id) && !ownCreated.current.has(id));
+    ids.forEach((id) => seenNew.current!.add(id));
+    if (fresh.length > 0 && soundOn) beep();
+  }, [orders, loading, scope, searching, soundOn]);
+
+  // Bip quand un nouveau paiement Mobile Money attend d'être validé
   const seenToVerify = useRef<Set<string> | null>(null);
   useEffect(() => {
     if (loading) return;
@@ -519,10 +545,9 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
             <div className="relative min-w-[11rem] flex-1">
               <input
                 value={query}
-                onChange={(e) => setQuery(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                inputMode="numeric"
-                placeholder="Rechercher un ticket (n°)"
-                aria-label="Rechercher un ticket par son numéro"
+                onChange={(e) => setQuery(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8))}
+                placeholder="N° de ticket ou de bon"
+                aria-label="Rechercher un ticket ou un bon par son numéro"
                 className="w-full rounded-full border border-stone-200 bg-white py-2.5 pl-4 pr-10 text-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
               />
               {query && (
@@ -547,7 +572,7 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
           ) : orders.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-stone-300 px-4 py-10 text-center text-sm text-stone-400">
               {searching
-                ? `Aucun ticket n° ${searchNo}`
+                ? `Aucun ticket ou bon « ${searchCode ?? searchNo} »`
                 : scope === 'change'
                   ? 'Aucune monnaie due'
                 : scope === 'unpaid'
@@ -629,6 +654,7 @@ function Cashier({ restaurantId, readOnly }: { restaurantId: string; readOnly: b
           session={session}
           onClose={() => setCounterOpen(false)}
           onCreated={({ orderId, paid, order, voucher }: CounterResult) => {
+            ownCreated.current.add(orderId); // pas de bip pour ma propre commande
             setCounterOpen(false);
             void reload();
             if (voucher) setVoucherJob({ order, ...voucher, step: 'voucher' });
