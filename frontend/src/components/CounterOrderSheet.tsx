@@ -71,6 +71,8 @@ export function CounterOrderSheet({
   const [selected, setSelected] = useState<MenuProduct | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [paying, setPaying] = useState(false);
+  // Étape « nom du client » (à emporter) avant l'encaissement ou l'enregistrement
+  const [askName, setAskName] = useState<null | 'pay' | 'later'>(null);
   const [received, setReceived] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -149,6 +151,7 @@ export function CounterOrderSheet({
     if (cart.count === 0) {
       setCartOpen(false);
       setPaying(false);
+      setAskName(null);
     }
   }, [cart.count]);
 
@@ -256,16 +259,7 @@ export function CounterOrderSheet({
                   </button>
                 </div>
               )}
-              {type === 'TAKEAWAY' ? (
-                <input
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  maxLength={40}
-                  placeholder="Nom du client (appelé au haut-parleur)"
-                  aria-label="Nom du client"
-                  className={inputCls}
-                />
-              ) : (
+              {type === 'DINE_IN' && (
                 <select
                   value={tableId}
                   onChange={(e) => setTableId(e.target.value)}
@@ -279,6 +273,11 @@ export function CounterOrderSheet({
                     </option>
                   ))}
                 </select>
+              )}
+              {type === 'TAKEAWAY' && (
+                <p className="px-1 text-sm text-stone-500">
+                  Commande à emporter : le nom du client est demandé avant l’encaissement.
+                </p>
               )}
             </div>
           </div>
@@ -408,7 +407,7 @@ export function CounterOrderSheet({
         <Sheet label="Commande en cours" onClose={() => (busy ? undefined : setCartOpen(false))}>
           <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
             <h2 className="text-lg font-semibold tracking-tight">
-              {paying ? 'Encaisser' : 'Commande en cours'}
+              {askName ? 'Nom du client' : paying ? 'Encaisser' : 'Commande en cours'}
             </h2>
             <button
               type="button"
@@ -421,7 +420,22 @@ export function CounterOrderSheet({
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
-            {!paying ? (
+            {askName ? (
+              <div>
+                <label htmlFor="c-name" className="mb-1.5 block text-sm font-semibold text-stone-700">
+                  Nom du client
+                </label>
+                <input
+                  id="c-name"
+                  autoFocus
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  maxLength={40}
+                  placeholder="Appelé au haut-parleur quand la commande est prête"
+                  className={inputCls}
+                />
+              </div>
+            ) : !paying ? (
               <ul className="divide-y divide-stone-100 rounded-2xl bg-stone-50 px-4">
                 {cart.lines.map((l) => (
                   <li key={l.key} className="flex items-center justify-between gap-3 py-3">
@@ -491,7 +505,7 @@ export function CounterOrderSheet({
           </div>
 
           <div className="space-y-2 border-t border-stone-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            {!paying && (
+            {!paying && !askName && (
               <div className="mb-1 flex items-center justify-between px-1">
                 <span className="text-stone-500">Total</span>
                 <span className="text-lg font-semibold">{fcfa(total)}</span>
@@ -506,6 +520,38 @@ export function CounterOrderSheet({
               >
                 {busy ? 'Envoi…' : needTable ? 'Choisissez la table' : 'Envoyer en cuisine'}
               </button>
+            ) : askName ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (needName) return setError('Saisissez le nom du client (2 lettres minimum)');
+                    setError(null);
+                    const next = askName;
+                    setAskName(null);
+                    if (next === 'pay') {
+                      setReceived(String(total));
+                      setPaying(true);
+                    } else {
+                      void submit(false);
+                    }
+                  }}
+                  disabled={busy}
+                  className="w-full rounded-2xl bg-brand-500 px-5 py-4 font-semibold text-white shadow-lg shadow-brand-500/30 transition active:scale-[0.98] disabled:opacity-50"
+                >
+                  {askName === 'pay' ? 'Continuer vers l’encaissement' : 'Enregistrer la commande'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setAskName(null);
+                  }}
+                  className="w-full rounded-2xl bg-stone-100 px-5 py-3 font-medium text-stone-700"
+                >
+                  Retour
+                </button>
+              </>
             ) : paying ? (
               <>
                 {validAmount && change > 0 && (
@@ -539,8 +585,13 @@ export function CounterOrderSheet({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => void submit(false)}
-                  disabled={busy || needName}
+                  onClick={() => {
+                    if (needName) {
+                      setError(null);
+                      setAskName('later');
+                    } else void submit(false);
+                  }}
+                  disabled={busy}
                   className="rounded-2xl bg-stone-100 px-4 py-3.5 font-semibold text-stone-800 transition active:scale-[0.98] disabled:opacity-50"
                 >
                   Payer plus tard
@@ -549,18 +600,19 @@ export function CounterOrderSheet({
                   type="button"
                   onClick={() => {
                     setError(null);
+                    if (needName) {
+                      setAskName('pay');
+                      return;
+                    }
                     setReceived(String(total));
                     setPaying(true);
                   }}
-                  disabled={busy || !session || needName}
+                  disabled={busy || !session}
                   className="rounded-2xl bg-brand-500 px-4 py-3.5 font-semibold text-white shadow-lg shadow-brand-500/30 transition active:scale-[0.98] disabled:opacity-50"
                 >
                   Encaisser maintenant
                 </button>
               </div>
-            )}
-            {!waiter && needName && (
-              <p className="text-center text-xs text-stone-500">Saisissez le nom du client en haut de la page.</p>
             )}
             {!waiter && !session && (
               <p className="text-center text-xs text-stone-500">Ouvrez votre caisse pour encaisser tout de suite.</p>

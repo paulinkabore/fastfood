@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
-import { POLL_MS, REALTIME } from '../../lib/realtime';
+import { CASHIER_POLL_MS, REALTIME } from '../../lib/realtime';
 import { ApiError } from '../../lib/api';
 import { authRequest, getAccessToken, refreshSession } from '../../lib/auth';
 import type { CashierOrder, CashSessionView } from '../../lib/types';
@@ -14,7 +14,10 @@ export function useCashier(restaurantId: string, scope: CashierScope, number?: n
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState(false);
 
+  const inflight = useRef(false);
   const load = useCallback(async () => {
+    if (inflight.current) return;
+    inflight.current = true;
     try {
       // Deux demandes indépendantes : si la liste des commandes échoue, la caisse ouverte reste affichée
       const [s, o] = await Promise.allSettled([
@@ -32,6 +35,7 @@ export function useCashier(restaurantId: string, scope: CashierScope, number?: n
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Erreur inattendue');
     } finally {
+      inflight.current = false;
       setLoading(false);
     }
   }, [restaurantId, scope, number]);
@@ -53,7 +57,7 @@ export function useCashier(restaurantId: string, scope: CashierScope, number?: n
       window.clearTimeout(timer);
       timer = window.setTimeout(() => void loadRef.current(), 300);
     };
-    const poll = window.setInterval(() => void loadRef.current(), POLL_MS);
+    const poll = window.setInterval(() => void loadRef.current(), CASHIER_POLL_MS);
 
     if (!REALTIME) return () => window.clearInterval(poll);
 
