@@ -212,6 +212,8 @@ publicOrdersRouter.get(
         method: payment.method,
         status: payment.status,
         refundedAt: payment.refundedAt,
+        voucherUsedFcfa: payment.voucherUsedFcfa,
+        voucherUsedCode: payment.voucherUsedCode,
         cashierName: null,
       },
     });

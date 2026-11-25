@@ -325,6 +325,9 @@ model Payment {
   // Monnaie non rendue sur le moment : le client repart avec un bon, la caisse la remet plus tard
   changeDueFcfa          Int       @default(0)
   changeCode             String?
+  // Bon de monnaie d'une commande précédente utilisé comme réduction sur celle-ci
+  voucherUsedFcfa        Int       @default(0)
+  voucherUsedCode        String?
   changeSettledAt        DateTime?
   changeSettledById      String?
   changeSettledSessionId String?

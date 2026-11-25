@@ -26,7 +26,15 @@ function ReceiptBody({ r }: { r: ReceiptView }) {
       <Sep />
       <TicketItems items={r.items} />
       <Sep double />
-      <Row left="TOTAL PAYÉ" right={fcfa(r.totalFcfa)} bold size="16px" />
+      {(r.voucherUsedFcfa ?? 0) > 0 ? (
+        <>
+          <Row left="TOTAL" right={fcfa(r.totalFcfa)} />
+          <Row left={`Bon n° ${r.voucherUsedCode ?? ''}`} right={`- ${fcfa(r.voucherUsedFcfa ?? 0)}`} />
+          <Row left="NET PAYÉ" right={fcfa(Math.max(0, r.totalFcfa - (r.voucherUsedFcfa ?? 0)))} bold size="16px" />
+        </>
+      ) : (
+        <Row left="TOTAL PAYÉ" right={fcfa(r.totalFcfa)} bold size="16px" />
+      )}
       <Row left="Mode de paiement" right={r.method === 'CASH' ? 'Espèces' : 'Mobile Money'} />
       {r.status === 'REFUNDED' && (
         <p style={{ textAlign: 'center', fontWeight: 700, margin: '6px 0 0' }}>*** REMBOURSÉ ***</p>

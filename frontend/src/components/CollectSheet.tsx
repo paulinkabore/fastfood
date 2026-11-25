@@ -8,6 +8,7 @@ import { CheckIcon, CloseIcon } from './icons';
 import { placeLabel } from '../lib/orderPlace';
 import { ChangeVoucherPanel, useVoucher } from './ChangeVoucherPanel';
 import { ReceiptPrint } from './ReceiptSheet';
+import { VoucherUseField, useVoucherUse } from './VoucherUseField';
 import { ChangeVoucherTicket } from './ChangeVoucherTicket';
 import { printTicket } from '../lib/print';
 
@@ -45,11 +46,18 @@ export function CollectSheet({
     };
   }, [printStep]);
 
+  const vu = useVoucherUse(restaurantId);
+  const usedValue = vu.applied?.amountFcfa ?? 0;
+  const need = Math.max(0, order.totalFcfa - usedValue); // reste à payer après le bon du client
+  useEffect(() => {
+    setReceived(String(need));
+  }, [need]);
+
   const amount = parseAmount(received);
-  const change = amount - order.totalFcfa;
-  const valid = amount >= order.totalFcfa;
+  const change = amount + usedValue - order.totalFcfa;
+  const valid = change >= 0;
   const voucher = useVoucher(Math.max(0, change));
-  const quick = [order.totalFcfa, ...BILLS.filter((b) => b > order.totalFcfa)];
+  const quick = [need, ...BILLS.filter((b) => b > need)];
 
   const confirm = async (voucherFcfa?: number) => {
     if (lock.current || !valid) return;
@@ -59,7 +67,7 @@ export function CollectSheet({
     try {
       const data = await authRequest<{ changeFcfa: number | null; payment: { changeCode: string | null } }>(
         `/restaurants/${restaurantId}/orders/${order.id}/pay/cash`,
-        { method: 'POST', body: JSON.stringify({ amountReceivedFcfa: amount, ...(voucherFcfa ? { voucherFcfa } : {}) }) },
+        { method: 'POST', body: JSON.stringify({ amountReceivedFcfa: amount, ...(voucherFcfa ? { voucherFcfa } : {}), ...(vu.applied ? { useVoucherCode: vu.applied.code } : {}) }) },
       );
       setDone({
         change: data.changeFcfa,
@@ -168,9 +176,17 @@ export function CollectSheet({
             </ul>
 
             <div className="flex items-end justify-between">
-              <span className="text-stone-500">Total à payer</span>
+              <span className="text-stone-500">{vu.applied ? 'Total de la commande' : 'Total à payer'}</span>
               <span className="text-3xl font-semibold tracking-tight">{fcfa(order.totalFcfa)}</span>
             </div>
+
+            <VoucherUseField vu={vu} />
+            {vu.applied && (
+              <div className="flex items-end justify-between">
+                <span className="text-stone-500">Reste à payer</span>
+                <span className="text-2xl font-semibold tracking-tight">{fcfa(need)}</span>
+              </div>
+            )}
 
             <div>
               <label htmlFor="received" className="mb-1.5 block text-sm font-semibold text-stone-700">

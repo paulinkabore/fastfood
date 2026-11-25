@@ -15,6 +15,7 @@ import type {
 } from '../lib/types';
 import { ChangeVoucherPanel, useVoucher } from './ChangeVoucherPanel';
 import { Logo } from './Logo';
+import { VoucherUseField, useVoucherUse } from './VoucherUseField';
 import { ProductSheet } from './ProductSheet';
 import { Sheet } from './Sheet';
 import { Stepper } from './Stepper';
@@ -159,11 +160,17 @@ export function CounterOrderSheet({
   const needName = type === 'TAKEAWAY' && customerName.trim().length < 2;
   const needTable = waiter && !tableId;
   const total = cart.subtotal;
+  const vu = useVoucherUse(restaurantId);
+  const usedValue = vu.applied?.amountFcfa ?? 0;
+  const need = Math.max(0, total - usedValue); // reste à payer après le bon du client
+  useEffect(() => {
+    setReceived(String(need));
+  }, [need]);
   const amount = parseAmount(received);
-  const change = amount - total;
-  const validAmount = amount >= total;
+  const change = amount + usedValue - total;
+  const validAmount = change >= 0;
 
-  const submit = async (payNow: boolean, opts?: { amountReceivedFcfa: number; voucherFcfa?: number }) => {
+  const submit = async (payNow: boolean, opts?: { amountReceivedFcfa: number; voucherFcfa?: number; useVoucherCode?: string }) => {
     if (lock.current || cart.lines.length === 0) return;
     if (needTable) return setError('Choisissez la table');
     if (needName) return setError('Saisissez le nom du client');
@@ -225,7 +232,7 @@ export function CounterOrderSheet({
 
   const visibleCats = categories.filter((c) => products.some((p) => p.categoryId === c.id));
   const voucher = useVoucher(Math.max(0, change));
-  const quick = [total, ...BILLS.filter((b) => b > total)];
+  const quick = [need, ...BILLS.filter((b) => b > need)];
 
   return createPortal(
     <div className="fixed inset-0 z-40 flex flex-col bg-stone-50 print:hidden" role="dialog" aria-label="Nouvelle commande">
@@ -455,9 +462,16 @@ export function CounterOrderSheet({
             ) : (
               <>
                 <div className="flex items-end justify-between">
-                  <span className="text-stone-500">Total à payer</span>
+                  <span className="text-stone-500">{vu.applied ? 'Total de la commande' : 'Total à payer'}</span>
                   <span className="text-3xl font-semibold tracking-tight">{fcfa(total)}</span>
                 </div>
+                <VoucherUseField vu={vu} />
+                {vu.applied && (
+                  <div className="flex items-end justify-between">
+                    <span className="text-stone-500">Reste à payer</span>
+                    <span className="text-2xl font-semibold tracking-tight">{fcfa(need)}</span>
+                  </div>
+                )}
                 <div>
                   <label htmlFor="c-received" className="mb-1.5 block text-sm font-semibold text-stone-700">
                     Montant reçu
@@ -559,7 +573,7 @@ export function CounterOrderSheet({
               <>
                 <button
                   type="button"
-                  onClick={() => void submit(true, { amountReceivedFcfa: amount, voucherFcfa: voucher.amount })}
+                  onClick={() => void submit(true, { amountReceivedFcfa: amount, voucherFcfa: voucher.amount, useVoucherCode: vu.applied?.code })}
                   disabled={busy || !validAmount || !voucher.valid}
                   className="w-full rounded-2xl bg-brand-500 px-5 py-4 font-semibold text-white shadow-lg shadow-brand-500/30 transition active:scale-[0.98] disabled:opacity-50"
                 >
@@ -567,7 +581,10 @@ export function CounterOrderSheet({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPaying(false)}
+                  onClick={() => {
+                    vu.clear();
+                    setPaying(false);
+                  }}
                   disabled={busy}
                   className="w-full rounded-2xl bg-stone-100 px-5 py-3 font-medium text-stone-700"
                 >

@@ -107,6 +107,8 @@ export type ReceiptView = {
   method: string;
   status: PaymentStatus;
   refundedAt: string | null;
+  voucherUsedFcfa?: number;
+  voucherUsedCode?: string | null;
   cashierName: string | null;
 };
 

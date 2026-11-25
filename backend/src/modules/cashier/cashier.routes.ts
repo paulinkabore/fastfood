@@ -308,6 +308,8 @@ async function collectCash(opts: {
   amountReceivedFcfa?: number;
   // Monnaie que le caissier n'a pas : ce montant devient un bon remis au client, le reste est rendu
   voucherFcfa?: number;
+  // Numéro d'un bon de monnaie du client : sa valeur vient en déduction du total
+  useVoucherCode?: string;
 }) {
   return prisma.$transaction(async (tx) => {
     await lockRestaurant(tx, opts.restaurantId);
@@ -335,7 +337,38 @@ async function collectCash(opts: {
       return { order, payment, unchanged: true, changeFcfa: null as number | null };
     }
 
-    if (opts.amountReceivedFcfa !== undefined && opts.amountReceivedFcfa < order.totalFcfa) {
+    // Bon de monnaie présenté par le client : consommé ici, sa valeur est déduite du total
+    let usedVoucher: { amountFcfa: number; code: string } | null = null;
+    if (opts.useVoucherCode) {
+      const code = opts.useVoucherCode.trim().toUpperCase();
+      const v = await tx.payment.findFirst({
+        where: { restaurantId: opts.restaurantId, changeCode: code, status: 'PAID', changeDueFcfa: { gt: 0 } },
+      });
+      if (!v) throw new AppError(404, 'VOUCHER_NOT_FOUND', 'Aucun bon avec ce numéro');
+      if (v.orderId === order.id) throw new AppError(400, 'VOUCHER_SAME_ORDER', 'Ce bon ne peut pas servir à sa propre commande');
+      if (v.changeSettledAt) throw new AppError(409, 'VOUCHER_ALREADY_USED', 'Ce bon a déjà été utilisé');
+      await tx.payment.update({
+        where: { id: v.id },
+        data: { changeSettledAt: new Date(), changeSettledById: opts.userId, changeSettledSessionId: session.id },
+      });
+      await tx.auditLog.create({
+        data: {
+          restaurantId: opts.restaurantId,
+          userId: opts.userId,
+          action: 'CHANGE_VOUCHER_USED',
+          entity: 'Payment',
+          entityId: v.id,
+          details: { code, amountFcfa: v.changeDueFcfa, usedOnOrderId: order.id, cashSessionId: session.id },
+        },
+      });
+      usedVoucher = { amountFcfa: v.changeDueFcfa, code };
+    }
+    const voucherValue: number = (usedVoucher as { amountFcfa: number } | null)?.amountFcfa ?? 0;
+
+    if (
+      opts.amountReceivedFcfa !== undefined &&
+      opts.amountReceivedFcfa + voucherValue < order.totalFcfa
+    ) {
       throw new AppError(400, 'AMOUNT_TOO_LOW', 'Le montant reçu est inférieur au total');
     }
 
@@ -351,7 +384,9 @@ async function collectCash(opts: {
       }
     }
     const fullChange =
-      opts.amountReceivedFcfa !== undefined ? opts.amountReceivedFcfa - order.totalFcfa : 0;
+      opts.amountReceivedFcfa !== undefined
+        ? opts.amountReceivedFcfa + voucherValue - order.totalFcfa
+        : Math.max(0, voucherValue - order.totalFcfa);
     const changeDue = opts.voucherFcfa ?? 0;
     if (opts.voucherFcfa !== undefined && (changeDue <= 0 || changeDue > fullChange)) {
       throw new AppError(
@@ -380,6 +415,8 @@ async function collectCash(opts: {
       receiptNumber,
       changeDueFcfa: changeDue,
       changeCode: changeDue > 0 ? changeCode : null,
+      voucherUsedFcfa: voucherValue,
+      voucherUsedCode: (usedVoucher as { code: string } | null)?.code ?? null,
     };
     const payment = pending
       ? await tx.payment.update({ where: { id: pending.id }, data })
@@ -419,7 +456,9 @@ async function collectCash(opts: {
       payment,
       unchanged: false,
       changeFcfa:
-        opts.amountReceivedFcfa !== undefined ? opts.amountReceivedFcfa - order.totalFcfa : null,
+        opts.amountReceivedFcfa !== undefined
+          ? opts.amountReceivedFcfa + voucherValue - order.totalFcfa
+          : null,
     };
   });
 }
@@ -428,10 +467,11 @@ cashierRouter.post(
   '/orders/:orderId/pay/cash',
   ...cashierOnly,
   asyncHandler(async (req, res) => {
-    const { amountReceivedFcfa, voucherFcfa } = z
+    const { amountReceivedFcfa, voucherFcfa, useVoucherCode } = z
       .object({
         amountReceivedFcfa: z.number().int().min(0).max(100_000_000).optional(),
         voucherFcfa: z.number().int().min(1).max(100_000_000).optional(),
+        useVoucherCode: z.string().trim().min(4).max(12).optional(),
       })
       .parse(req.body ?? {});
 
@@ -441,6 +481,7 @@ cashierRouter.post(
       userId: uid(req),
       amountReceivedFcfa,
       voucherFcfa,
+      useVoucherCode,
     });
     if (!result.unchanged) void emitOrderUpdated(result.order.id);
 
@@ -618,6 +659,7 @@ const counterSchema = z.object({
   payNow: z.boolean().default(false),
   amountReceivedFcfa: z.number().int().min(0).max(100_000_000).optional(),
   voucherFcfa: z.number().int().min(1).max(100_000_000).optional(),
+  useVoucherCode: z.string().trim().min(4).max(12).optional(),
 });
 
 cashierRouter.post(
@@ -673,6 +715,7 @@ cashierRouter.post(
       userId: uid(req),
       amountReceivedFcfa: body.amountReceivedFcfa,
       voucherFcfa: body.voucherFcfa,
+      useVoucherCode: body.useVoucherCode,
     });
     void emitOrderUpdated(order.id);
     const fresh = await prisma.order.findUniqueOrThrow({
@@ -744,6 +787,22 @@ cashierRouter.post(
 );
 
 // ================= Remboursement (gérant) =================
+// Recherche d'un bon par son numéro, avant de l'utiliser sur une nouvelle commande
+cashierRouter.get(
+  '/change-vouchers/:code',
+  ...cashierOnly,
+  asyncHandler(async (req, res) => {
+    const code = String(req.params.code).trim().toUpperCase();
+    const v = await prisma.payment.findFirst({
+      where: { restaurantId: rid(req), changeCode: code, status: 'PAID', changeDueFcfa: { gt: 0 } },
+      include: { order: { select: { number: true } } },
+    });
+    if (!v) throw new AppError(404, 'VOUCHER_NOT_FOUND', 'Aucun bon avec ce numéro');
+    if (v.changeSettledAt) throw new AppError(409, 'VOUCHER_ALREADY_USED', 'Ce bon a déjà été utilisé');
+    res.json({ voucher: { code, amountFcfa: v.changeDueFcfa, orderNumber: v.order.number } });
+  }),
+);
+
 // Le client revient avec son bon : le caissier lui remet la monnaie, qui sort de SA caisse
 cashierRouter.post(
   '/orders/:orderId/change/settle',
@@ -812,6 +871,13 @@ cashierRouter.post(
         where: { orderId: order.id, status: 'PAID', method: { in: ['CASH', 'MOBILE_MONEY'] } },
       });
       if (!payment) throw new AppError(409, 'NOT_PAID', 'Aucun paiement à rembourser');
+      if (payment.voucherUsedFcfa > 0) {
+        throw new AppError(
+          409,
+          'VOUCHER_USED',
+          'Cette commande a été payée avec un bon de monnaie : le remboursement doit se faire manuellement',
+        );
+      }
       if (payment.changeDueFcfa > 0 && !payment.changeSettledAt) {
         throw new AppError(
           409,
@@ -937,6 +1003,8 @@ cashierRouter.get(
         method: payment.method,
         status: payment.status,
         refundedAt: payment.refundedAt,
+        voucherUsedFcfa: payment.voucherUsedFcfa,
+        voucherUsedCode: payment.voucherUsedCode,
         cashierName: cashier?.fullName ?? null,
       },
     });
