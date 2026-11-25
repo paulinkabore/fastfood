@@ -3,7 +3,25 @@ export const TICKET_WIDTH_MM = 80;
 
 // Imprime le ticket affiché dans « .print-receipt » sur un papier de 80 mm,
 // avec une hauteur égale à celle du ticket (pas de page A4 presque vide)
-export function printTicket() {
+export async function printTicket() {
+  // Attend le chargement du logo : sinon il peut manquer sur le ticket fraîchement affiché
+  const imgs = Array.from(document.querySelectorAll<HTMLImageElement>('.print-receipt img')).filter(
+    (i) => !i.complete,
+  );
+  if (imgs.length > 0) {
+    await Promise.race([
+      Promise.all(
+        imgs.map(
+          (i) =>
+            new Promise<void>((resolve) => {
+              i.addEventListener('load', () => resolve(), { once: true });
+              i.addEventListener('error', () => resolve(), { once: true });
+            }),
+        ),
+      ),
+      new Promise((resolve) => window.setTimeout(resolve, 1500)),
+    ]);
+  }
   const el = document.querySelector<HTMLElement>('.print-receipt');
   let heightMm = 200;
   if (el) {

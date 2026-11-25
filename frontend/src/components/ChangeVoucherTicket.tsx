@@ -9,6 +9,11 @@ export function ChangeVoucherTicket({ order, amountFcfa, code }: { order: OrderV
   const now = new Date();
   return createPortal(
     <div className="print-receipt" style={ticketFont}>
+      <img
+        src="/logo.png"
+        alt="Logo"
+        style={{ display: 'block', margin: '0 auto 4px', width: '28mm', filter: 'grayscale(1)' }}
+      />
       <TicketHeader title="BON DE MONNAIE" restaurantName={order.restaurantName} />
       {code && (
         <p style={{ textAlign: 'center', fontWeight: 700, fontSize: '20px', letterSpacing: '3px', margin: '0 0 4px' }}>
